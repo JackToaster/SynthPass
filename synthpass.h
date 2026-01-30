@@ -4,19 +4,32 @@
 #include <stdint.h>
 
 
-#define PHY_MODE       PHY_1M
-
+// ---- Link layer details ----
 // the "BED6" address for BLE advertisements
 // Normally an access address for BLE communication is unique per connection, but since we're only sending
 // and receiving advertising packets we'll just use this fixed/pre-defined address for all communication.
 #define ACCESS_ADDRESS 0x8E89BED6
+#define SYNTHPASS_PHY_MODE       PHY_1M
 
 #define SYNTHPASS_PDU 0x02
 #define SYNTHPASS_MAC (":3:3:3")
 #define SYNTHPASS_MAC_SIZE 6
 #define SYNTHPASS_DATA_SIZE (255 - SYNTHPASS_MAC_SIZE)
 
+
+// BLE advertisements are sent on channels 37, 38, and 39.
+// Arbitrarily choosing 37 so that synthpass devices don't need to channel hop to find each other.
+#define SYNTHPASS_CHANNEL 37
+
+
+// ----------------------------
+
+
+
+// ---- SynthPass protocol definitions ----
 typedef struct __attribute__((__packed__)) {
+    uint8_t ad_len;     // advertising data unit length, counts remainder of the packet (not including the ad_len byte itself)
+    uint8_t ad_type;    // advertising data type, use 0xFF ("manufacturer specific data")
 	uint32_t sender_uid;
 	uint8_t msg_type;
 	int8_t ref_rssi; // RSSI as received by a NanoCH57x receiver at 1m distance. Used for calibrating RSSI between different synthpass hardware.
@@ -34,7 +47,7 @@ typedef struct __attribute__((__packed__)) {
     // ---------------------------
 
 	uint8_t mac[SYNTHPASS_MAC_SIZE]; // == SYNTHPASS_MAC
-    
+
 	SynthPass_Message_T msg; // Remainder of packet data
 } SynthPass_Frame_T;
 
@@ -58,25 +71,40 @@ typedef enum {
 									// Unboop messages are identical to PROX messages.
 } SynthPass_MessageType_T;
 
+// Message data structs
+typedef struct {
+    uint32_t peer_uid;
+    int8_t rx_rssi;
+} SynthPass_Prox_T; // Prox/Boop/Unboop
 
+typedef struct {
+    uint32_t peer_id;
+    uint8_t user_info[237];
+} SynthPass_ProxData_T; // ProxData/BoopData
+
+typedef struct {
+    uint32_t peer_id;
+} SynthPass_ProxDataAck_T; // ProxDataAck/BoopDataAck
+
+// ----------------------------------------
+
+
+// ---- Timing & Calibration parameter ----
 #define SYNTHPASS_REF_RSSI   0 		// RSSI as received by a NanoCH57x at 1m distance. Used for calibrating RSSI between different synthpass hardware.
 #define SYNTHPASS_REF_RXRSSI 0		// RSSI of received frames sent by a NanoCH57x at 1m distance. This is used to calibrate out differences in RX sensitivity between different synthpass hardware.
-
 
 #define SYNTHPASS_BROADCAST_PERIOD 1000 // (milliseconds) interval between sending broadcast packets without peers
 #define SYNTHPASS_PROX_PERIOD 200       // (milliseconds) interval between sending broadcast packets with at least one peer responding with PROX messages.
 #define SYNTHPASS_BOOP_PERIOD 20        // (milliseconds) interval between sending broadcast packets with at least one peer
 #define SYNTHPASS_RANDOM_DELAY 20       // (milliseconds) random delay up to this time is added to each broadcast period to avoid repeated collisions.
 
+typedef enum {
+    BROADCAST_PERIOD_NORMAL,
+    BROADCAST_PERIOD_PROX,
+    BROADCAST_PERIOD_BOOP
+} Synthpass_BroadcastPeriod_T;
 
 #define SYNTHPASS_TIMEOUT 3000     // (milliseconds) If no BOOP or UNBOOP messages received in this time, assume the boop ended and unboop.
-
-// BLE advertisements are sent on channels 37, 38, and 39.
-// Arbitrarily choosing 37 so that synthpass devices don't need to channel hop to find each other.
-#define SYNTHPASS_CHANNEL 37
-
-
-#define SYNTHPASS_PACKET_SIZE sizeof(SynthPass_Packet_T)
-
+// ----------------------------------------
 
 #endif

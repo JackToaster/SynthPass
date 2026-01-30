@@ -6,6 +6,7 @@
  * When a new frame is received, the callback "incoming_frame_handler()" is called to process it.
  */
 #include "ch32fun.h"
+#include "ch5xxhw.h"
 #include "iSLER.h"
 #include <stdio.h>
 #include <string.h>
@@ -17,6 +18,11 @@
 
 __attribute__((aligned(4))) SynthPass_Frame_T tx_frame = {};
 uint32_t synthpass_uid;
+uint32_t last_broadcast_tick;
+uint32_t broadcast_random_ticks;
+
+// TODO replace with two timers (last_prox, last_booped)
+Synthpass_BroadcastPeriod_T period = BROADCAST_PERIOD_NORMAL;
 
 void blink(int n) {
 	for(int i = n-1; i >= 0; i--) {
@@ -24,6 +30,49 @@ void blink(int n) {
 		Delay_Ms(33);
 		funDigitalWrite( LED, FUN_HIGH ); // Turn off LED
 		if(i) Delay_Ms(33);
+	}
+}
+
+void synthpass_rx() {
+	iSLERRX(ACCESS_ADDRESS, SYNTHPASS_CHANNEL, SYNTHPASS_PHY_MODE);
+}
+
+uint8_t synthpass_tx(SynthPass_MessageType_T type, uint8_t* data, uint8_t data_length) {
+	uint32_t len = data_length + sizeof(SynthPass_Header_T) + SYNTHPASS_MAC_SIZE;
+	if(len > 255) {
+		return 1;
+	}
+	tx_frame.length = len;
+
+	tx_frame.msg.hdr.ad_len = data_length + sizeof(SynthPass_Header_T) - 1; // length of message+header, minus the ad_len byte itself
+	
+	tx_frame.msg.hdr.msg_type = type;
+	memcpy(tx_frame.msg.data, data, data_length);
+
+	uint32_t isler_frame_length = len + 2;
+
+	// printf("total frame length: %d, Data length: %d, ad_len: %d\n", isler_frame_length, len, tx_frame.msg.hdr.ad_len);
+
+	iSLERTX(ACCESS_ADDRESS, (uint8_t*)&tx_frame, isler_frame_length, SYNTHPASS_CHANNEL, SYNTHPASS_PHY_MODE);
+
+	return 0;
+}
+
+uint8_t synthpass_broadcast() {
+
+	uint8_t status = synthpass_tx(SYNTHPASS_BROADCAST, 0, 0);
+	if(status == 0) {
+		printf("beep!\n");
+	} else {
+		printf("sad beep :(\n");
+	}
+	last_broadcast_tick = funSysTick32();
+	return status;
+}
+
+void printf_uid(uint32_t uid) {
+	for(int i = 0; i < 4; ++i) {
+		printf(":%02x", (synthpass_uid >> (8 * i)) & 0xFF);
 	}
 }
 
@@ -35,13 +84,14 @@ uint8_t synthpass_init() {
 	tx_frame.pdu = 0x02;
 	tx_frame.length = SYNTHPASS_MAC_SIZE;
 	strncpy((char*) tx_frame.mac, SYNTHPASS_MAC, SYNTHPASS_MAC_SIZE);
+
+	tx_frame.msg.hdr.ad_type = 0xFF; // "Manufacturer specific data"
+
 	tx_frame.msg.hdr.ref_rssi = SYNTHPASS_REF_RSSI;
 	tx_frame.msg.hdr.sender_uid = synthpass_uid;
 
 	printf("Synthpass init! UID");
-	for(int i = 0; i < 4; ++i) {
-		printf(":%02x", (synthpass_uid >> (8 * i)) & 0xFF);
-	}
+	printf_uid(synthpass_uid);
 	printf("\n");
 
 
@@ -52,20 +102,19 @@ uint8_t synthpass_init() {
 	// }
 	// printf("\n");
 
+	// set last broadcast time to now
+	last_broadcast_tick = funSysTick32();
+	broadcast_random_ticks = 0;
+
+	// first broadcast
+	synthpass_broadcast();
+	// start listening for frames
+	synthpass_rx();
+
 	return 0;
 }
 
-uint8_t synthpass_tx(SynthPass_MessageType_T type, uint8_t* data, uint8_t data_length) {
-	uint32_t len = data_length + sizeof(SynthPass_Header_T) + SYNTHPASS_MAC_SIZE;
-	if(len > 255) {
-		return 1;
-	}
-	tx_frame.length = data_length + sizeof(SynthPass_Header_T) + SYNTHPASS_MAC_SIZE;
-	
-	return 0;
-}
-
-uint8_t validate_synthpass_frame(SynthPass_Frame_T *frame) {
+uint8_t validate_synthpass_frame(volatile SynthPass_Frame_T *frame) {
 	return (
 		frame->pdu == SYNTHPASS_PDU
 		&& (strncmp((const char*)(frame->mac), SYNTHPASS_MAC, SYNTHPASS_MAC_SIZE) == 0)
@@ -74,23 +123,66 @@ uint8_t validate_synthpass_frame(SynthPass_Frame_T *frame) {
 
 void incoming_frame_handler() {
 	// The chip stores the incoming frame in LLE_BUF, defined in extralibs/iSLER.h
-	SynthPass_Frame_T *frame = (SynthPass_Frame_T*)LLE_BUF;
+	volatile SynthPass_Frame_T *frame = (volatile SynthPass_Frame_T*)LLE_BUF;
+
+
 
 	// check if the RX'd frame is a synthpass frame (PDU and MAC match)
 	if(!validate_synthpass_frame(frame)) {
 		return;
 	}
 
-	int rssi = iSLERRSSI();
-
 	// Print frame info
+	int rssi = iSLERRSSI();
+	int corrected_rssi = rssi - frame->msg.hdr.ref_rssi - SYNTHPASS_REF_RXRSSI;
+
 	printf("RX'd! RSSI:%d PDU:%d len:%d MAC", rssi, frame->pdu, frame->length);
-	
 	for(int i = 0; i < SYNTHPASS_MAC_SIZE; ++i) {
 		printf(":%02x", frame->mac[i]);
 	}
-
 	printf("\n");
+
+	SynthPass_MessageType_T type = frame->msg.hdr.msg_type;
+
+	switch(type) {
+		case SYNTHPASS_BROADCAST:
+			{
+				// received broadcast data from another SynthPass, reply with PROX frame
+				printf("BROADCAST peer uid");
+				printf_uid(frame->msg.hdr.sender_uid); // TODO for some reason this is the own device's UID rather than the peer's????? 
+				printf("\n");
+				
+				SynthPass_Prox_T msg = {
+					.peer_uid=frame->msg.hdr.sender_uid,
+					.rx_rssi=corrected_rssi
+				};
+
+				synthpass_tx(SYNTHPASS_PROX, (uint8_t*)&msg, sizeof(msg));
+
+				// add sender_uid to peers
+				
+				// switch to faster message rate
+				if(period == SYNTHPASS_BROADCAST_PERIOD) period = SYNTHPASS_PROX_PERIOD;
+				synthpass_rx();
+			}
+			break;
+		case SYNTHPASS_PROX:
+			{
+				// Received a response
+				SynthPass_Prox_T *rxData = (SynthPass_Prox_T *) frame->msg.data;
+				if(rxData->peer_uid == synthpass_uid) {
+					printf("PROX peer uid");
+					printf_uid(rxData->peer_uid);
+					printf(" rx_rssi=%d\n", rxData->rx_rssi);
+				} else {
+					printf("(not for me) PROX\n");
+				}
+			}
+			break;
+		default:
+			printf("Unrecognized type %d\n", type);
+			break;
+	}
 }
 
 int main()
@@ -107,24 +199,22 @@ int main()
 	blink(5);
 
 	while(1) {
-		// printf("beep!\n");
-		// iSLERTX(ACCESS_ADDRESS, (uint8_t*) &tx_frame, sizeof(tx_frame), SYNTHPASS_CHANNEL, PHY_MODE);
-		
-		// blink(5);
+		if(rx_ready) {
+			incoming_frame_handler();
+			synthpass_rx();
+		}
 
-		// for(uint32_t i = 0; i < 50; ++i){
-		
-		iSLERRX(ACCESS_ADDRESS, SYNTHPASS_CHANNEL, PHY_MODE);
+		uint32_t broadcast_period_ticks = broadcast_random_ticks;
+		if(period == BROADCAST_PERIOD_NORMAL) { broadcast_period_ticks += SYNTHPASS_BROADCAST_PERIOD * DELAY_MS_TIME; }
+		else if(period == BROADCAST_PERIOD_PROX) { broadcast_period_ticks += SYNTHPASS_PROX_PERIOD * DELAY_MS_TIME; }
+		else /* BROADCAST_PERIOD_BOOP */ { broadcast_period_ticks += SYNTHPASS_BOOP_PERIOD * DELAY_MS_TIME; }
 
-		while(!rx_ready) {}
-		incoming_frame_handler();
-		// for(uint32_t i = 0; i < 500; ++i) {
-		// 	if(rx_ready) {
-		// 		incoming_frame_handler();
-		// 		iSLERRX(ACCESS_ADDRESS, SYNTHPASS_CHANNEL, PHY_MODE);
-		// 	}
-		// 	Delay_Ms(1);
-		// }
+		if(funSysTick32() - last_broadcast_tick > broadcast_period_ticks) {
+			synthpass_broadcast();
+			synthpass_rx();
+			broadcast_random_ticks = 0; // todo randomize
+		}
+		
 	}
 }
 
