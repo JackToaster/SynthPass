@@ -5,3 +5,5 @@
 .vscode/ipch
 .pioenvs
 .piolibdeps
+compile_commands.json
+.cache/*
