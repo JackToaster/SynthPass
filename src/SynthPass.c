@@ -10,6 +10,7 @@
 #include "iSLER.h"
 #include <stdio.h>
 #include <string.h>
+#include "fsusb.h"
 
 #include "synthpass.h"
 
@@ -31,6 +32,12 @@ void blink(int n) {
 		funDigitalWrite( LED, FUN_HIGH ); // Turn off LED
 		if(i) Delay_Ms(33);
 	}
+}
+
+void handle_usbfs_input(int numbytes, uint8_t *data) {
+
+		_write(0, (const char*)data, numbytes);
+
 }
 
 void synthpass_rx() {
@@ -199,15 +206,19 @@ int main()
 	SystemInit();
 
 	funGpioInitAll();
-	funPinMode( LED, GPIO_CFGLR_OUT_2Mhz_PP );
+	funPinMode( LED, GPIO_CFGLR_OUT_10Mhz_PP );
+	
+	USBFSSetup();
 
 	synthpass_init();
 
 	iSLERInit(LL_TX_POWER_0_DBM);
 
-	blink(5);
+	blink(1);
 
 	while(1) {
+		poll_input(); // check if there is input from the tty
+
 		if(rx_ready) {
 			incoming_frame_handler();
 			synthpass_rx();
@@ -223,6 +234,6 @@ int main()
 			synthpass_rx();
 			broadcast_random_ticks = 0; // todo randomize
 		}
-		
+
 	}
 }
