@@ -16,6 +16,10 @@
 #define SYNTHPASS_MAC_SIZE 6
 #define SYNTHPASS_DATA_SIZE (255 - SYNTHPASS_MAC_SIZE)
 
+// Max message payload that fits in a single frame's data field (i.e. after the
+// link-layer/advertising header). This bounds the user's own broadcast message.
+#define SYNTHPASS_MAX_MSG_SIZE (SYNTHPASS_DATA_SIZE - sizeof(SynthPass_Header_T))
+
 
 // BLE advertisements are sent on channels 37, 38, and 39.
 // Arbitrarily choosing 37 so that synthpass devices don't need to channel hop to find each other.
@@ -85,6 +89,13 @@ typedef struct __attribute__((__packed__)) {
 typedef struct __attribute__((__packed__)) {
     uint32_t peer_id;
 } SynthPass_ProxDataAck_T; // ProxDataAck/BoopDataAck
+
+
+// TODO more data on how user_info is stored.
+// We need to mirror the record types in msgstore.h (text, file)
+// with a few limitations, namely size of data for text/files and the length of the filename for file type records.
+// File type records must keep space at the end of the filename (at least one character?) to append a number in case of duplicate
+// filenames. 
 
 // ----------------------------------------
 
