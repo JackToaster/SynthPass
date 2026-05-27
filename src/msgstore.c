@@ -6,10 +6,10 @@
  *   [0 .. RECV_END)      received messages -- append-only, strictly increasing
  *   [OWN_OFF .. end)     own message       -- rewritable (last 4 KB sector)
  *
- * A record on flash is: magic[2]="SP", peer_id(u32), data_length(u16), then
- * data_length payload bytes, padded to a 4-byte boundary (ch5xx_flash writes in
- * 32-bit words). Reads are plain memory-mapped accesses; writes go through
- * ch32fun's ch5xx_flash (4 KB-sector erase + program) and run from RAM.
+ * A record on flash is a 12-byte header (magic[2]="SP", peer_id(u32),
+ * record_type(u8), data_length(u16)) then data_length payload bytes, padded to a
+ * 4-byte boundary (flash writes in 32-bit words). Reads are plain memory-mapped
+ * accesses; writes go through RAM-resident erase/program helpers.
  *
  * Appends only ever touch the (pre-erased) end of the buffer, so there's no
  * read-modify-erase. NOTE: ch5xx_flash_cmd_verify is unreliable on this chip, so
@@ -28,18 +28,18 @@
 #define RECV_OFF  0u                         // received buffer: start of the store
 #define RECV_END  OWN_OFF                    // ...up to where the own sector begins
 
-#define HDR_SIZE  8u    // magic[2] + peer_id(4) + data_length(2)
-#define MAX_DATA  256u  // cap on a single record's payload
+#define HDR_SIZE  12u   // magic[2] + peer_id(4) + record_type(1) + rsvd(1) + data_length(2) + rsvd(2)
+#define MAX_DATA  256u  // cap on a single record's whole payload (FILE = name83[11] + content)
 
 // Store-format version, stored in the README record's peer_id (received[0]).
 // README is never host-editable, so editing OWN.TXT can't trip the fresh check.
 // Bump this to force a one-time wipe + re-seed when the seeded layout changes.
-#define STORE_VERSION 2u
+#define STORE_VERSION 3u
 
 // Default content, written as the first received record on a fresh store.
 static const uint8_t README_TXT[] =
-	"SynthPass V0.1\r\n"
-	"Collected messages appear as files in this folder.\r\n";
+	"SynthPass V0.1\n"
+	"Collected messages appear in MESSAGES.MD; files appear alongside it.\n";
 
 // Runtime state, (re)computed by msgstore_init().
 static uint32_t recv_count;       // number of received records in flash
@@ -61,7 +61,8 @@ static SynthPassPeerRecord_T record_view(uint32_t off) {
 	r.magic[0] = p[0];
 	r.magic[1] = p[1];
 	memcpy(&r.peer_id, p + 2, 4);     // memcpy: tolerate unaligned flash layout
-	memcpy(&r.data_length, p + 6, 2);
+	r.record_type = (PeerRecordType_T)p[6];
+	memcpy(&r.data_length, p + 8, 2);
 	r.data = p + HDR_SIZE;
 	return r;
 }
@@ -69,7 +70,7 @@ static SynthPassPeerRecord_T record_view(uint32_t off) {
 // Total on-flash size of the record at off (header + payload, padded to 4 bytes).
 static uint32_t rec_total_len(uint32_t off) {
 	uint16_t dl;
-	memcpy(&dl, store_ptr(off) + 6, 2);
+	memcpy(&dl, store_ptr(off) + 8, 2);
 	return (HDR_SIZE + dl + 3u) & ~3u;
 }
 
@@ -112,13 +113,16 @@ static void flash_write(uint32_t addr, const uint8_t *buf, int len) {
 }
 
 __HIGH_CODE
-static void flash_write_record(uint32_t off, uint32_t peer_id, const uint8_t *data, uint16_t len) {
+static void flash_write_record(uint32_t off, uint32_t peer_id, PeerRecordType_T type,
+                               const uint8_t *data, uint16_t len) {
 	if (len > MAX_DATA) len = MAX_DATA;
 	uint8_t buf[HDR_SIZE + MAX_DATA];
+	memset(buf, 0, HDR_SIZE);          // zero the reserved header bytes (7, 10, 11)
 	buf[0] = 'S';
 	buf[1] = 'P';
 	memcpy(buf + 2, &peer_id, 4);
-	memcpy(buf + 6, &len, 2);
+	buf[6] = (uint8_t)type;
+	memcpy(buf + 8, &len, 2);
 	memcpy(buf + HDR_SIZE, data, len);
 	flash_write(MSG_FLASH_ADDR + off, buf, HDR_SIZE + len);
 }
@@ -137,8 +141,8 @@ void msgstore_init(void) {
 		for (uint32_t a = 0; a < MSG_FLASH_SIZE; a += 0x1000u) {
 			flash_erase_sector(MSG_FLASH_ADDR + a);
 		}
-		flash_write_record(RECV_OFF, STORE_VERSION, README_TXT, sizeof(README_TXT) - 1); // README -> received[0] (peer_id = version)
-		flash_write_record(OWN_OFF, 0, README_TXT, sizeof(README_TXT) - 1);             // default own message
+		flash_write_record(RECV_OFF, STORE_VERSION, RECORD_TYPE_TEXT, README_TXT, sizeof(README_TXT) - 1); // README -> received[0] (peer_id = version)
+		flash_write_record(OWN_OFF, 0, RECORD_TYPE_TEXT, README_TXT, sizeof(README_TXT) - 1);             // default own message
 	}
 
 	// Populate the received-message state by scanning records until the first
@@ -151,15 +155,30 @@ void msgstore_init(void) {
 	recv_count = count;
 	recv_append_off = off;
 
-	// TEMP (until radio.c wiring): seed a few test received messages so the
-	// multi-file MSC presentation has something to show.
+	// TEMP (until radio.c wiring): seed a mix of text + file records so the
+	// MESSAGES.MD feed and the separate file presentation have something to show.
 	if (fresh) {
-		static const char m1[] = "Hello from a nearby SynthPass!\r\n";
-		static const char m2[] = "boop boop :3\r\n";
-		static const char m3[] = "the third message\r\n";
-		msgstore_received_append(0x1111, (const uint8_t*)m1, sizeof(m1) - 1);
-		msgstore_received_append(0x2222, (const uint8_t*)m2, sizeof(m2) - 1);
-		msgstore_received_append(0x3333, (const uint8_t*)m3, sizeof(m3) - 1);
+		static const char m1[] = "Hello from a nearby SynthPass!\n";
+		static const char m2[] = "boop boop :3\n";
+		msgstore_received_append(0x1111, RECORD_TYPE_TEXT, (const uint8_t*)m1, sizeof(m1) - 1);
+		msgstore_received_append(0x2222, RECORD_TYPE_TEXT, (const uint8_t*)m2, sizeof(m2) - 1);
+
+		// One FILE record: 8.3 name "PROOT.GIF" (last two name chars left spare
+		// for a future dedup suffix) followed by a tiny fake payload.
+		static const uint8_t file_rec[] = {
+			'P','R','O','O','T',' ',' ',' ', 'G','I','F',   // name83[11]
+			0x47,0x49,0x46,0x38,0x39,0x61,                  // fake content "GIF89a"
+		};
+		msgstore_received_append(0x3333, RECORD_TYPE_FILE, file_rec, sizeof(file_rec));
+
+		// Bulk text so MESSAGES.MD spans more than one 4 KB cluster (exercises the
+		// multi-cluster FAT chain + on-the-fly generator across the boundary).
+		static const char bulk[] =
+			"The quick brown protogen jumps over the lazy synth. "
+			"Boop responsibly. This line pads the feed past one cluster.\n";
+		for (uint32_t i = 0; i < 40; i++) {
+			msgstore_received_append(0x4444 + i, RECORD_TYPE_TEXT, (const uint8_t*)bulk, sizeof(bulk) - 1);
+		}
 	}
 }
 
@@ -171,7 +190,7 @@ SynthPassPeerRecord_T msgstore_own(void) {
 __HIGH_CODE
 void msgstore_own_set(uint32_t peer_id, const uint8_t *data, uint16_t len) {
 	flash_erase_sector(MSG_FLASH_ADDR + OWN_OFF); // erase the own sector (RAM-resident)
-	flash_write_record(OWN_OFF, peer_id, data, len);
+	flash_write_record(OWN_OFF, peer_id, RECORD_TYPE_TEXT, data, len); // own is always text
 }
 
 // ---- received messages ----
@@ -188,14 +207,39 @@ SynthPassPeerRecord_T msgstore_received(uint32_t index) {
 }
 
 __HIGH_CODE
-int msgstore_received_append(uint32_t peer_id, const uint8_t *data, uint16_t len) {
+int msgstore_received_append(uint32_t peer_id, PeerRecordType_T type,
+                             const uint8_t *data, uint16_t len) {
 	if (len > MAX_DATA) len = MAX_DATA;
 	uint32_t need = (HDR_SIZE + len + 3u) & ~3u;
 	if (recv_append_off + need > RECV_END) {
 		return -1; // store full
 	}
-	flash_write_record(recv_append_off, peer_id, data, len);
+	flash_write_record(recv_append_off, peer_id, type, data, len);
 	recv_append_off += need;
 	recv_count++;
 	return 0;
+}
+
+// ---- record payload accessors ----
+// For FILE records the payload is name83[11] + content; for TEXT it's all content.
+void msgstore_file_name(SynthPassPeerRecord_T rec, uint8_t out[11]) {
+	if (rec.record_type == RECORD_TYPE_FILE && rec.data_length >= 11) {
+		memcpy(out, rec.data, 11);
+	} else {
+		memset(out, ' ', 11);
+	}
+}
+
+const uint8_t *msgstore_record_content(SynthPassPeerRecord_T rec) {
+	if (rec.record_type == RECORD_TYPE_FILE && rec.data_length >= 11) {
+		return rec.data + 11;
+	}
+	return rec.data;
+}
+
+uint16_t msgstore_record_content_len(SynthPassPeerRecord_T rec) {
+	if (rec.record_type == RECORD_TYPE_FILE) {
+		return (rec.data_length >= 11) ? (uint16_t)(rec.data_length - 11) : 0u;
+	}
+	return rec.data_length;
 }

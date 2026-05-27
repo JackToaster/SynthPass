@@ -92,41 +92,192 @@ static const uint8_t BootSector[512] = {
 	0x29,                                           // Ext boot signature
 	0x12, 0x34, 0x56, 0x78,                         // Serial Number
 	'S','Y','N','T','H','P','A','S','S',' ',' ',    // Volume Label (11)
-	'F', 'A', 'T', '1', '6', ' ', ' ', ' ',         // FS Type
+	'F', 'A', 'T', '1', '2', ' ', ' ', ' ',         // FS Type (volume has <4085 clusters)
 	[510] = 0x55,
 	[511] = 0xAA
 };
 
-// The volume presents one file per record: file 0 = own message ("OWN.TXT"),
-// files 1..N = received messages ("00001.TXT", "00002.TXT", ...). File f lives
-// in cluster (FILE_CLUSTER + f); each occupies a single cluster.
-static SynthPassPeerRecord_T msc_file(uint32_t f) {
-	if (f == 0) return msgstore_own();
-	return msgstore_received(f - 1);
+// ---------------------------------------------------------------------------
+// Logical file model:
+//   slot 0  = OWN.TXT       (writable own message)
+//   slot 1  = MESSAGES.MD   (markdown feed, synthesized on-the-fly, NEVER stored)
+//   slot 2+ = one file per RECORD_TYPE_FILE received record, in receipt order
+// TEXT received records are not files -- they only appear inside MESSAGES.MD.
+// ---------------------------------------------------------------------------
+
+static uint32_t msc_file_record_count(void) {
+	uint32_t n = msgstore_received_count(), c = 0;
+	for (uint32_t i = 0; i < n; i++)
+		if (msgstore_received(i).record_type == RECORD_TYPE_FILE) c++;
+	return c;
 }
 
-// 8.3 name (11 bytes, space-padded) for file f: "OWN     TXT" / "00001   TXT".
-static void msc_file_name(uint32_t f, uint8_t name[11]) {
-	memset(name, ' ', 11);
-	if (f == 0) {
-		memcpy(name, "OWN", 3);
-	} else {
-		uint32_t n = f; // received[f-1] -> file number f (1 -> "00001")
-		for (int i = 4; i >= 0; i--) { name[i] = '0' + (n % 10); n /= 10; }
+// received[] index of the k-th FILE record; returns count if out of range.
+static uint32_t msc_filerec_index(uint32_t k) {
+	uint32_t n = msgstore_received_count(), c = 0;
+	for (uint32_t i = 0; i < n; i++) {
+		if (msgstore_received(i).record_type == RECORD_TYPE_FILE) {
+			if (c == k) return i;
+			c++;
+		}
 	}
-	memcpy(name + 8, "TXT", 3);
+	return n;
 }
 
-// Build the 32-byte FAT root-directory entry for file f.
-static void msc_dir_entry(uint32_t f, uint8_t entry[32]) {
+static uint32_t msc_nfiles(void) { return 2 + msc_file_record_count(); }
+
+// ---- MESSAGES.MD generator (built on the fly; never stored in flash) -------
+// Per record: "<uid>: <text>\n----\n"  or  "<uid>: ![<uid>](<NAME.EXT>)\n----\n"
+// UID is ":xx:xx:xx:xx" (little-endian bytes, matching radio.c's printf_uid).
+#define MD_SEP_LEN   6u                 // "\n----\n"
+#define MD_MAX_BLOCK 288u               // >= uid(12)+": "(2)+content(<=256)+"\n----\n"(6)
+
+static const char MD_HEX[] = "0123456789abcdef";
+
+// Render peer_id as 12 chars ":xx:xx:xx:xx" + NUL into out[13].
+static void md_uid(uint32_t peer_id, char *out) {
+	char *p = out;
+	for (int i = 0; i < 4; i++) {
+		uint8_t b = (peer_id >> (8 * i)) & 0xFF;
+		*p++ = ':'; *p++ = MD_HEX[b >> 4]; *p++ = MD_HEX[b & 0xF];
+	}
+	*p = '\0';
+}
+
+// Build a FILE record's dotted display name ("PROOT.GIF") into out[13]; len returned.
+static uint32_t md_filename(SynthPassPeerRecord_T rec, char *out) {
+	uint8_t n83[11];
+	msgstore_file_name(rec, n83);
+	int nlen = 8; while (nlen > 0 && n83[nlen - 1] == ' ') nlen--;
+	int elen = 3; while (elen > 0 && n83[8 + elen - 1] == ' ') elen--;
+	uint32_t len = 0;
+	for (int i = 0; i < nlen; i++) out[len++] = n83[i];
+	if (elen > 0) { out[len++] = '.'; for (int i = 0; i < elen; i++) out[len++] = n83[8 + i]; }
+	out[len] = '\0';
+	return len;
+}
+
+// Formatted feed-block length of a record (no buffer touched).
+static uint32_t md_block_len(SynthPassPeerRecord_T rec) {
+	if (rec.record_type == RECORD_TYPE_FILE) {
+		char fn[13];
+		uint32_t fnlen = md_filename(rec, fn);
+		// uid + ": " + "![" + uid + "](" + name + ")" + sep
+		return 12u + 2u + 2u + 12u + 2u + fnlen + 1u + MD_SEP_LEN;
+	}
+	return 12u + 2u + msgstore_record_content_len(rec) + MD_SEP_LEN;
+}
+
+static uint32_t md_total_len(void) {
+	uint32_t n = msgstore_received_count(), total = 0;
+	for (uint32_t i = 0; i < n; i++) total += md_block_len(msgstore_received(i));
+	return total;
+}
+
+// Clusters occupied by MESSAGES.MD (>= 1 even when the feed is empty).
+static uint16_t msc_md_clusters(void) {
+	uint32_t c = (md_total_len() + 4095u) / 4096u;
+	return c ? (uint16_t)c : 1u;
+}
+
+// Render a record's full feed block into md_block_buf; return its length
+// (== md_block_len). MSC BOT is strictly serialized, so a single static buffer
+// is safe and keeps it off the read-path stack.
+static uint8_t md_block_buf[MD_MAX_BLOCK];
+static uint32_t md_build_block(SynthPassPeerRecord_T rec) {
+	char uid[13];
+	md_uid(rec.peer_id, uid);
+	uint8_t *p = md_block_buf;
+	memcpy(p, uid, 12); p += 12;
+	*p++ = ':'; *p++ = ' ';
+	if (rec.record_type == RECORD_TYPE_FILE) {
+		char fn[13];
+		uint32_t fnlen = md_filename(rec, fn);
+		*p++ = '!'; *p++ = '[';
+		memcpy(p, uid, 12); p += 12;
+		*p++ = ']'; *p++ = '(';
+		memcpy(p, fn, fnlen); p += fnlen;
+		*p++ = ')';
+	} else {
+		uint32_t clen = msgstore_record_content_len(rec);
+		if (clen > MD_MAX_BLOCK - 20u) clen = MD_MAX_BLOCK - 20u; // never overflow the buffer
+		memcpy(p, msgstore_record_content(rec), clen); p += clen;
+	}
+	*p++ = '\n'; *p++ = '-'; *p++ = '-'; *p++ = '-'; *p++ = '-'; *p++ = '\n';
+	return (uint32_t)(p - md_block_buf);
+}
+
+// Produce `len` bytes of the feed starting at byte md_offset. Offset-addressable,
+// so it composes with any host chunking; past-EOF stays zero.
+static void md_emit(uint32_t md_offset, uint8_t *dst, uint32_t len) {
+	for (uint32_t i = 0; i < len; i++) dst[i] = 0;
+	uint32_t n = msgstore_received_count();
+	uint32_t pos = 0, win_end = md_offset + len;
+	for (uint32_t i = 0; i < n; i++) {
+		SynthPassPeerRecord_T rec = msgstore_received(i);
+		uint32_t block_start = pos;
+		pos += md_block_len(rec);
+		if (block_start >= win_end) break;   // this + later blocks are past the window
+		if (pos <= md_offset) continue;      // this block is before the window
+		md_build_block(rec);
+		uint32_t s = (block_start > md_offset) ? block_start : md_offset;
+		uint32_t e = (pos < win_end) ? pos : win_end;
+		for (uint32_t b = s; b < e; b++) dst[b - md_offset] = md_block_buf[b - block_start];
+	}
+}
+
+// ---- FAT + directory + LBA mapping (variable layout, multi-cluster MD) -----
+// FAT12 entry value for cluster c. The volume has < 4085 clusters, so the host
+// reads it as FAT12 (12-bit entries), not FAT16 -- a multi-cluster chain only
+// works if we emit 12-bit values correctly. OWN=cluster 2 (single), MD=clusters
+// 3..2+md_clusters (chained), FILE records each a single cluster after that.
+static uint16_t fat_entry(uint16_t c, uint16_t md_clusters, uint32_t fcount) {
+	if (c == 0) return 0xFF8;                // media descriptor
+	if (c == 1) return 0xFFF;                // reserved
+	if (c == 2) return 0xFFF;                // OWN.TXT (EOF)
+	uint16_t md_last = 2 + md_clusters;      // MD = clusters 3..md_last
+	if (c >= 3 && c <= md_last) return (c < md_last) ? (uint16_t)(c + 1) : 0xFFF;
+	uint16_t fc_first = 3 + md_clusters;
+	if (c >= fc_first && c < fc_first + fcount) return 0xFFF; // FILE record (single, EOF)
+	return 0x000;                            // free
+}
+
+// Map a data-area LBA to (slot, byte offset of the sector within that file).
+// Returns 1 if it falls inside a file, 0 for free space.
+static int msc_lba_to_file(uint32_t lba, uint16_t md_clusters, uint32_t *slot, uint32_t *base) {
+	uint32_t ds = lba - START_DATA;
+	uint32_t cluster = 2 + ds / 8, sic = ds % 8;
+	uint32_t fc_first = 3 + md_clusters;
+	if (cluster == 2)                     { *slot = 0; *base = sic * 512u; return 1; }
+	if (cluster >= 3 && cluster < fc_first) { *slot = 1; *base = (cluster - 3) * 4096u + sic * 512u; return 1; }
+	uint32_t k = cluster - fc_first;
+	if (k < msc_file_record_count())      { *slot = 2 + k; *base = sic * 512u; return 1; }
+	return 0;
+}
+
+// Build the 32-byte root-directory entry for a logical slot.
+static void msc_dir_entry(uint32_t slot, uint8_t entry[32], uint16_t md_clusters) {
 	memset(entry, 0, 32);
-	msc_file_name(f, entry);
-	entry[0x0B] = 0x20;                      // attribute: archive
-	entry[0x16] = 0x21; entry[0x18] = 0x21;  // write time/date (arbitrary, non-zero)
-	uint16_t cluster = (uint16_t)(FILE_CLUSTER + f);
+	uint16_t cluster;
+	uint32_t size;
+	uint8_t attr;
+	if (slot == 0) {                              // OWN.TXT -- writable
+		memcpy(entry, "OWN     TXT", 11);
+		attr = 0x20; cluster = FILE_CLUSTER; size = msgstore_own().data_length;
+	} else if (slot == 1) {                       // MESSAGES.MD -- read-only feed
+		memcpy(entry, "MESSAGESMD ", 11);
+		attr = 0x01; cluster = FILE_CLUSTER + 1; size = md_total_len();
+	} else {                                      // FILE record -- read-only
+		SynthPassPeerRecord_T rec = msgstore_received(msc_filerec_index(slot - 2));
+		msgstore_file_name(rec, entry);
+		attr = 0x01;
+		cluster = (uint16_t)(FILE_CLUSTER + 1 + md_clusters + (slot - 2));
+		size = msgstore_record_content_len(rec);
+	}
+	entry[0x0B] = attr;
+	entry[0x16] = 0x21; entry[0x18] = 0x21;       // write time/date (arbitrary, non-zero)
 	entry[0x1A] = cluster & 0xFF;
 	entry[0x1B] = cluster >> 8;
-	uint32_t size = msc_file(f).data_length;
 	entry[0x1C] = size & 0xFF;
 	entry[0x1D] = (size >> 8) & 0xFF;
 	entry[0x1E] = (size >> 16) & 0xFF;
@@ -201,43 +352,67 @@ static void MSC_PrepareDataIn(void) {
 		uint32_t current_lba = lba_start + done / 512;
 		uint32_t boff = done % 512;                        // byte offset within the sector
 		len_to_send = (msc_bytes_remaining > 64) ? 64 : msc_bytes_remaining;
-		uint32_t nfiles = 1 + msgstore_received_count();   // own + received
+
+		uint16_t md_clusters = msc_md_clusters();
+		uint32_t nfiles = msc_nfiles();
 
 		// --- Boot sector ---
 		if (current_lba == 0) {
 			memcpy(msc_response_buffer, &BootSector[boff], len_to_send);
 		}
-		// --- FAT tables: cluster 0 = F8FF, cluster 1 = FFFF, and each file's
-		//     single cluster (2..1+nfiles) marked EOF (FFFF); rest free (0). ---
-		else if (current_lba == START_FAT1 || current_lba == START_FAT2) {
-			uint32_t fat_used = 2u * (2u + nfiles);
+		// --- FAT (both copies, all 16 sectors each): emit each byte from
+		//     fat_entry() so the variable/chained layout is correct anywhere. ---
+		else if ((current_lba >= START_FAT1 && current_lba < START_FAT1 + 16) ||
+		         (current_lba >= START_FAT2 && current_lba < START_FAT2 + 16)) {
+			uint32_t fat_sec = (current_lba >= START_FAT2) ? (current_lba - START_FAT2)
+			                                               : (current_lba - START_FAT1);
+			uint32_t fcount = msc_file_record_count();
 			for (uint32_t i = 0; i < len_to_send; i++) {
-				uint32_t pos = boff + i;
-				if (pos == 0) msc_response_buffer[i] = 0xF8;
-				else if (pos < fat_used) msc_response_buffer[i] = 0xFF;
+				uint32_t byte = fat_sec * 512u + boff + i;       // byte offset within the FAT
+				// FAT12: every 3 bytes pack two 12-bit entries (clusters 2k, 2k+1).
+				uint32_t k = byte / 3, r = byte % 3;
+				uint16_t e0 = fat_entry((uint16_t)(2u * k),     md_clusters, fcount);
+				uint16_t e1 = fat_entry((uint16_t)(2u * k + 1), md_clusters, fcount);
+				uint8_t b;
+				if (r == 0)      b = e0 & 0xFF;
+				else if (r == 1) b = ((e0 >> 8) & 0x0F) | ((e1 & 0x0F) << 4);
+				else             b = (e1 >> 4) & 0xFF;
+				msc_response_buffer[i] = b;
 			}
 		}
-		// --- Root directory: one 32-byte entry per file (first root sector) ---
-		else if (current_lba == START_ROOT) {
+		// --- Root directory: 32-byte entries, one per logical slot ---
+		else if (current_lba >= START_ROOT && current_lba < START_DATA) {
+			uint32_t base_entry = (current_lba - START_ROOT) * 16u; // entries before this sector
 			for (uint32_t e = 0; e * 32 < len_to_send; e++) {
-				uint32_t f = boff / 32 + e;
-				if (f < nfiles) {
+				uint32_t slot = base_entry + boff / 32 + e;
+				if (slot < nfiles) {
 					uint8_t entry[32];
-					msc_dir_entry(f, entry);
+					msc_dir_entry(slot, entry, md_clusters);
 					uint32_t n = (len_to_send - e * 32 < 32) ? (len_to_send - e * 32) : 32;
 					memcpy(msc_response_buffer + e * 32, entry, n);
 				}
 			}
 		}
-		// --- Data area: cluster (2+f) holds file f's data in its first sector ---
+		// --- Data area ---
 		else if (current_lba >= START_DATA) {
-			uint32_t f = (current_lba - START_DATA) / 8;       // cluster (2+f) -> file f
-			uint32_t sector_in_cluster = (current_lba - START_DATA) % 8;
-			if (f < nfiles && sector_in_cluster == 0) {
-				SynthPassPeerRecord_T rec = msc_file(f);
-				for (uint32_t i = 0; i < len_to_send; i++) {
-					uint32_t off = boff + i;
-					if (off < rec.data_length) msc_response_buffer[i] = rec.data[off];
+			uint32_t slot, base;
+			if (msc_lba_to_file(current_lba, md_clusters, &slot, &base)) {
+				if (slot == 1) {                       // MESSAGES.MD -- generated
+					md_emit(base + boff, msc_response_buffer, len_to_send);
+				} else {                               // OWN.TXT or a FILE record
+					const uint8_t *content; uint32_t clen;
+					if (slot == 0) {
+						SynthPassPeerRecord_T rec = msgstore_own();
+						content = rec.data; clen = rec.data_length;
+					} else {
+						SynthPassPeerRecord_T rec = msgstore_received(msc_filerec_index(slot - 2));
+						content = msgstore_record_content(rec);
+						clen = msgstore_record_content_len(rec);
+					}
+					for (uint32_t i = 0; i < len_to_send; i++) {
+						uint32_t off = base + boff + i;
+						if (off < clen) msc_response_buffer[i] = content[off];
+					}
 				}
 			}
 		}
