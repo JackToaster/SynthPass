@@ -101,8 +101,8 @@ static void incoming_frame_handler(void) {
 				uint8_t status = synthpass_tx(SYNTHPASS_PROX, (uint8_t*)&msg, sizeof(msg));
 				(void)status;
 
-				// switch to faster message rate
-				if(period == SYNTHPASS_BROADCAST_PERIOD) period = SYNTHPASS_PROX_PERIOD;
+				// switch to faster message rate (period is the enum, not the ms value)
+				if (period == BROADCAST_PERIOD_NORMAL) period = BROADCAST_PERIOD_PROX;
 				synthpass_rx();
 			}
 			break;
