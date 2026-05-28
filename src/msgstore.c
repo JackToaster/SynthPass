@@ -83,6 +83,26 @@ static uint32_t rec_total_len(uint32_t off) {
 	return (HDR_SIZE + dl + 3u) & ~3u;
 }
 
+// Trim n down so buf[0..n) ends at a UTF-8 code-point boundary.
+// Drops an incomplete trailing sequence (cap fell inside a multi-byte char).
+// Cleans up text sequences with multi-byte characters crossing the size limit.
+static uint16_t utf8_trim(const uint8_t *buf, uint16_t n) {
+	if (n == 0) return 0;
+	// Walk back through continuation bytes (10xxxxxx) to the last code point's lead.
+	uint16_t i = n - 1;
+	while (i > 0 && (buf[i] & 0xC0) == 0x80) i--;
+	// How many bytes does that lead expect?
+	uint8_t lead = buf[i];
+	uint16_t needed;
+	if      ((lead & 0x80) == 0x00) needed = 1; // 0xxxxxxx  ASCII
+	else if ((lead & 0xE0) == 0xC0) needed = 2; // 110xxxxx
+	else if ((lead & 0xF0) == 0xE0) needed = 3; // 1110xxxx
+	else if ((lead & 0xF8) == 0xF0) needed = 4; // 11110xxx
+	else                            needed = 0; // malformed lead -> cut it
+	// Keep n if the sequence fits in [0, n); else cut at the lead.
+	return (needed > 0 && i + needed <= n) ? n : i;
+}
+
 // ---- flash writers (MUST run entirely from RAM) ----
 // Trying to run flash operations from flash triggers a reset.
 
@@ -226,6 +246,7 @@ __HIGH_CODE
 void msgstore_own_set(PeerRecordType_T type, const uint8_t name83[11],
                       const uint8_t *content, uint16_t content_len) {
 	if (content_len > MAX_DATA - 11u) content_len = MAX_DATA - 11u;
+	if (type == RECORD_TYPE_TEXT) content_len = utf8_trim(content, content_len);
 	uint8_t buf[MAX_DATA];
 	memcpy(buf, name83, 11);
 	memcpy(buf + 11, content, content_len);
@@ -319,6 +340,7 @@ __HIGH_CODE
 int msgstore_received_append(uint32_t peer_id, PeerRecordType_T type,
                              const uint8_t *data, uint16_t len) {
 	if (len > MAX_DATA) len = MAX_DATA;
+	if (type == RECORD_TYPE_TEXT) len = utf8_trim(data, len);
 	uint8_t buf[MAX_DATA];
 	if (type == RECORD_TYPE_FILE && len >= 11) {
 		memcpy(buf, data, len);
