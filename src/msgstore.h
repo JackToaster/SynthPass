@@ -16,7 +16,9 @@
 #define RECORD_MAGIC "SP"
 
 typedef enum {
-    RECORD_TYPE_TEXT = 0,  // just ASCII; glommed into the MESSAGES.MD feed
+    RECORD_TYPE_TEXT = 0,  // UTF-8 text; glommed into the MESSAGES.MD feed.
+                           // Stored bytes are trimmed to a code-point boundary
+                           // so a truncation never leaves a half-character.
     RECORD_TYPE_FILE = 1,  // arbitrary bytes, stuck in a markdown image tag
 } PeerRecordType_T;
 
