@@ -11,6 +11,7 @@
 #include "ch32fun.h"
 #include "ch5xxhw.h"
 #include "iSLER.h"
+#include "msgstore.h"
 #include "synthpass.h"
 #include "board.h"
 #include "lib_rand.h"
@@ -330,6 +331,31 @@ static void incoming_frame_handler(SynthPass_PeerState_T *peers) {
 				}
 			}
 			break;
+		case SYNTHPASS_BOOP_DATA:
+			{
+				// Received a response
+				SynthPass_ProxData_T *rxData = (SynthPass_ProxData_T *) frame->msg.data;
+
+				if(rxData->peer_uid == synthpass_uid) {
+					printf("BOOP-DATA peer uid");
+					printf_uid(frame->msg.hdr.sender_uid);
+					
+					uint32_t data_len = rxData->data_length; // i see what you're thinking
+
+					if(data_len > sizeof(rxData->user_info)) data_len = sizeof(rxData->user_info); // do not the buffer overflow
+
+					printf(" size %d\r\n", data_len);
+
+					// todo need to dedup records?
+					msgstore_received_append(peer_uid, rxData->record_type, rxData->user_info, data_len);
+
+				} else {
+					printf("(not for me) boopdata\r\n");
+				}
+			}
+			break;
+		case SYNTHPASS_PROX_DATA:
+			break;
 		default:
 			printf("Unrecognized type %d\r\n", type);
 			break;
@@ -395,10 +421,13 @@ void radio_task(SynthPass_PeerState_T *peers) {
 		// calculate broadcast period
 		uint32_t broadcast_period_ticks = broadcast_random_ticks;
 		if(is_any_peer_booped(peers)) {
+			LED_ON();
 			broadcast_period_ticks += SYNTHPASS_BOOP_PERIOD * DELAY_MS_TIME;
 		} else if(is_any_peer_active(peers)) {
+			LED_OFF();
 			broadcast_period_ticks += SYNTHPASS_PROX_PERIOD * DELAY_MS_TIME;
 		} else {
+			LED_OFF();
 			broadcast_period_ticks += SYNTHPASS_BROADCAST_PERIOD * DELAY_MS_TIME;
 		}
 

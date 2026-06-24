@@ -42,11 +42,11 @@ typedef struct __attribute__((__packed__)) {
 #define MAX_DATA  256u  // cap on a single record's whole payload (FILE = name83[11] + content)
 
 // Store-format version. Stored in the first message (README message). Incrementing invalidates the old store and triggers a flash erase.
-#define STORE_VERSION 8u
+#define STORE_VERSION 9u
 
 // Default content, written as the first received record on a fresh store.
 static const uint8_t README_TXT[] =
-	"SynthPass V0.8\n"
+	"SynthPass V0.9\n"
 	"Collected messages appear in MESSAGES.MD; files appear alongside it.\n";
 
 // Runtime state, (re)computed by msgstore_init().
@@ -181,41 +181,41 @@ void msgstore_init(void) {
 
 	// Populate the received-message state by walking the store with the iterator (stops at the first unwritten / non-valid slot).
 	// The iterator's final off IS the next free slot.
-	MsgStoreIter scan_it; SynthPassPeerRecord_T scan_r;
-	msgstore_iter_init(&scan_it);
-	uint32_t count = 0;
-	while (msgstore_iter_next(&scan_it, &scan_r)) count++;
-	recv_count      = count;
-	recv_append_off = scan_it.off;
+// 	MsgStoreIter scan_it; SynthPassPeerRecord_T scan_r;
+// 	msgstore_iter_init(&scan_it);
+// 	uint32_t count = 0;
+// 	while (msgstore_iter_next(&scan_it, &scan_r)) count++;
+// 	recv_count      = count;
+// 	recv_append_off = scan_it.off;
 
-	// TEMP (until radio.c wiring): seed a mix of text + file records so the
-	// MESSAGES.MD feed and the separate file presentation have something to show.
-	if (fresh) {
-		static const char m1[] = "Hello from a nearby creature :3\n";
-		static const char m2[] = "beep boop :3\n";
-		msgstore_received_append(0x1111, RECORD_TYPE_TEXT, (const uint8_t*)m1, sizeof(m1) - 1);
-		msgstore_received_append(0x2222, RECORD_TYPE_TEXT, (const uint8_t*)m2, sizeof(m2) - 1);
+// 	// TEMP (until radio.c wiring): seed a mix of text + file records so the
+// 	// MESSAGES.MD feed and the separate file presentation have something to show.
+// 	if (fresh) {
+// 		static const char m1[] = "Hello from a nearby creature :3\n";
+// 		static const char m2[] = "beep boop :3\n";
+// 		msgstore_received_append(0x1111, RECORD_TYPE_TEXT, (const uint8_t*)m1, sizeof(m1) - 1);
+// 		msgstore_received_append(0x2222, RECORD_TYPE_TEXT, (const uint8_t*)m2, sizeof(m2) - 1);
 
-		// One FILE record: 8.3 name "PROOT.GIF" (last two name chars left spare
-		// for a future dedup suffix) followed by a tiny fake payload.
-		static const uint8_t file_rec[] = {
-			'P','R','O','O','T',' ',' ',' ', 'G','I','F',   // name83[11] -> PROOT.GIF
-			0x47,0x49,0x46,0x38,0x39,0x61,                  // fake content "GIF89a"
-		};
-		// Three with the same name to test name dedup
-		// Should come out as PROOT.GIF, PROOT1.GIF, PROOT2.GIF
-		msgstore_received_append(0x3333, RECORD_TYPE_FILE, file_rec, sizeof(file_rec));
-		msgstore_received_append(0x4040, RECORD_TYPE_FILE, file_rec, sizeof(file_rec));
-		msgstore_received_append(0x5050, RECORD_TYPE_FILE, file_rec, sizeof(file_rec));
+// 		// One FILE record: 8.3 name "PROOT.GIF" (last two name chars left spare
+// 		// for a future dedup suffix) followed by a tiny fake payload.
+// 		static const uint8_t file_rec[] = {
+// 			'P','R','O','O','T',' ',' ',' ', 'G','I','F',   // name83[11] -> PROOT.GIF
+// 			0x47,0x49,0x46,0x38,0x39,0x61,                  // fake content "GIF89a"
+// 		};
+// 		// Three with the same name to test name dedup
+// 		// Should come out as PROOT.GIF, PROOT1.GIF, PROOT2.GIF
+// 		msgstore_received_append(0x3333, RECORD_TYPE_FILE, file_rec, sizeof(file_rec));
+// 		msgstore_received_append(0x4040, RECORD_TYPE_FILE, file_rec, sizeof(file_rec));
+// 		msgstore_received_append(0x5050, RECORD_TYPE_FILE, file_rec, sizeof(file_rec));
 
-		// Bulk text so MESSAGES.MD spans more than one 4 KB cluster (exercises edge cases for the cluster boundary).
-		static const char bulk[] =
-			"The quick brown protogen jumps over the lazy synth. "
-			"Boop responsibly. This line pads the feed past one cluster.\n";
-		for (uint32_t i = 0; i < 40; i++) {
-			msgstore_received_append(0x4444 + i, RECORD_TYPE_TEXT, (const uint8_t*)bulk, sizeof(bulk) - 1);
-		}
-	}
+// 		// Bulk text so MESSAGES.MD spans more than one 4 KB cluster (exercises edge cases for the cluster boundary).
+// 		static const char bulk[] =
+// 			"The quick brown protogen jumps over the lazy synth. "
+// 			"Boop responsibly. This line pads the feed past one cluster.\n";
+// 		for (uint32_t i = 0; i < 40; i++) {
+// 			msgstore_received_append(0x4444 + i, RECORD_TYPE_TEXT, (const uint8_t*)bulk, sizeof(bulk) - 1);
+// 		}
+// 	}
 }
 
 // ---- own item (the user's ME/ file) ----

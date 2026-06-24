@@ -40,9 +40,10 @@ int main()
 	usb_init();      // bring up CDC + MSC
 	radio_init();    // protocol state + iSLER radio; start broadcasting
 
-	blink(1);
+	blink(5);
 
 	while(1) {
+	// blink(10);
 		// CDC debug input: 'b' jumps to ROM bootloader, anything else is echoed.
 		int c = usb_cdc_getc();
 		if(c >= 0) {

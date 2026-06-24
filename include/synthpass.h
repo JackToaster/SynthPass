@@ -79,6 +79,8 @@ typedef struct __attribute__((__packed__)) {
 
 typedef struct __attribute__((__packed__)) {
     uint32_t peer_uid;
+	uint8_t record_type;
+	uint16_t data_length;
     uint8_t user_info[237];
 } SynthPass_ProxData_T; // ProxData/BoopData
 
