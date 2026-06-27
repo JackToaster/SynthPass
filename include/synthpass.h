@@ -91,7 +91,7 @@ typedef struct __attribute__((__packed__)) {
 
 #define MAX_PEERS 32
 // responses sent at least this long after the message received (so that they have time to go back into RX mode).
-#define RESPONSE_DELAY_MS 10
+#define RESPONSE_DELAY_MS 0
 
 // queued response - to be sent back to the peer after a delay
 typedef struct {
@@ -111,6 +111,8 @@ typedef struct {
 	SynthPass_NextProx_T next_prox; // whether we're booped, unbooped, or not booped. Affects what we'll respond with to the next broadcast.
 	uint32_t last_seen; // milliseconds timestamp when this peer was last seen.
 	SynthPass_QueuedResponse_T resp; // set to a message type/timestamp if we need to respond to this peer.
+	uint8_t our_prox_data_acked; // 1 once this peer has ack'd our PROX_DATA; we stop sending PROX_DATA to them.
+	uint8_t our_boop_data_acked; // 1 once this peer has ack'd our BOOP_DATA; we stop sending BOOP_DATA to them.
 } SynthPass_PeerState_T;
 
 

@@ -21,10 +21,19 @@
 #define MSG_FLASH_ADDR  (48 * 1024)    // 48 KB: start of the reserved store
 #define MSG_FLASH_SIZE  (192 * 1024) // 192 KB reserved for messages
 
-#define OWN_OFF   (MSG_FLASH_SIZE - 0x1000u) // own message: last 4 KB sector
-#define OWN_MAX   0x1000u 					 // max size 4k, even though the actual message can only be 250ish bytes. In the future we'll cram some more stuff in here.
-#define RECV_OFF  0u                         // received buffer: start of the store. TODO Kinda unneeded, maybe remove.
-#define RECV_END  OWN_OFF                    // up to where the own sector begins
+// Three reserved sectors at the top of the message-store region. From the end:
+//   - BOOP_OWN_OFF : "boop own" (last sector)
+//   - PROX_OWN_OFF : "prox own"
+//   - CONFIG_OFF   : host-editable config blob (synthpass.ini)
+// All three are 4 KB; received messages occupy everything below.
+#define BOOP_OWN_OFF (MSG_FLASH_SIZE - 0x1000u)
+#define PROX_OWN_OFF (MSG_FLASH_SIZE - 0x2000u)
+#define CONFIG_OFF   (MSG_FLASH_SIZE - 0x3000u)
+#define OWN_MAX      0x1000u
+#define RECV_OFF     0u
+#define RECV_END     CONFIG_OFF                 // received messages end before the config sector
+
+#define CONFIG_MAGIC 0xC0C0FA77u                // sentinel at the start of the config record
 
 // On-flash record header. Packed so the compiler emits byte-wise (unaligned-safe)
 // access to peer_id @2 and data_length @8 -- the same reason the previous code
@@ -42,12 +51,13 @@ typedef struct __attribute__((__packed__)) {
 #define MAX_DATA  256u  // cap on a single record's whole payload (FILE = name83[11] + content)
 
 // Store-format version. Stored in the first message (README message). Incrementing invalidates the old store and triggers a flash erase.
-#define STORE_VERSION 8u
+#define STORE_VERSION 13u
 
 // Default content, written as the first received record on a fresh store.
 static const uint8_t README_TXT[] =
-	"SynthPass V0.8\n"
-	"Collected messages appear in MESSAGES.MD; files appear alongside it.\n";
+	"SynthPass V0.13. "
+	"PROX.TXT goes out on detection, BOOP.TXT goes out on a boop. "
+	"Edit SYNTHPAS.INI to tweak tunable parameters.\n";
 
 // Runtime state, (re)computed by msgstore_init().
 static uint32_t recv_count;       // number of received records in flash
@@ -168,14 +178,23 @@ void msgstore_init(void) {
 			flash_erase_sector(MSG_FLASH_ADDR + a);
 		}
 		flash_write_record(RECV_OFF, STORE_VERSION, RECORD_TYPE_TEXT, README_TXT, sizeof(README_TXT) - 1); // README -> received[0] (peer_id = version)
-		// Default own item in ME/ (a .txt -> TEXT record): name "OWN.TXT" + greeting.
+		// Seed PROX.TXT and BOOP.TXT with placeholder greetings so users can see
+		// both slots from the host out of the box and edit either in place.
 		{
-			static const uint8_t own_name[11] = {'O','W','N',' ',' ',' ',' ',' ','T','X','T'};
-			static const char own_default[] = "I'm a bad toaster who forgot to edit their SynthPass message :'[\n";
-			uint8_t ownbuf[11 + sizeof(own_default) - 1];
-			memcpy(ownbuf, own_name, 11);
-			memcpy(ownbuf + 11, own_default, sizeof(own_default) - 1);
-			flash_write_record(OWN_OFF, 0, RECORD_TYPE_TEXT, ownbuf, sizeof(ownbuf));
+			static const uint8_t prox_name[11] = {'P','R','O','X',' ',' ',' ',' ','T','X','T'};
+			static const char prox_default[] = "Edit PROX.TXT in the ME folder to set what other SynthPasses see when you walk by.\n";
+			uint8_t buf[11 + sizeof(prox_default) - 1];
+			memcpy(buf, prox_name, 11);
+			memcpy(buf + 11, prox_default, sizeof(prox_default) - 1);
+			flash_write_record(PROX_OWN_OFF, 0, RECORD_TYPE_TEXT, buf, sizeof(buf));
+		}
+		{
+			static const uint8_t boop_name[11] = {'B','O','O','P',' ',' ',' ',' ','T','X','T'};
+			static const char boop_default[] = "Edit BOOP.TXT in the ME folder to set what other SynthPasses see when you boop them.\n";
+			uint8_t buf[11 + sizeof(boop_default) - 1];
+			memcpy(buf, boop_name, 11);
+			memcpy(buf + 11, boop_default, sizeof(boop_default) - 1);
+			flash_write_record(BOOP_OWN_OFF, 0, RECORD_TYPE_TEXT, buf, sizeof(buf));
 		}
 	}
 
@@ -188,76 +207,85 @@ void msgstore_init(void) {
 	recv_count      = count;
 	recv_append_off = scan_it.off;
 
-	// TEMP (until radio.c wiring): seed a mix of text + file records so the
-	// MESSAGES.MD feed and the separate file presentation have something to show.
-	if (fresh) {
-		static const char m1[] = "Hello from a nearby creature :3\n";
-		static const char m2[] = "beep boop :3\n";
-		msgstore_received_append(0x1111, RECORD_TYPE_TEXT, (const uint8_t*)m1, sizeof(m1) - 1);
-		msgstore_received_append(0x2222, RECORD_TYPE_TEXT, (const uint8_t*)m2, sizeof(m2) - 1);
-
-		// One FILE record: 8.3 name "PROOT.GIF" (last two name chars left spare
-		// for a future dedup suffix) followed by a tiny fake payload.
-		static const uint8_t file_rec[] = {
-			'P','R','O','O','T',' ',' ',' ', 'G','I','F',   // name83[11] -> PROOT.GIF
-			0x47,0x49,0x46,0x38,0x39,0x61,                  // fake content "GIF89a"
-		};
-		// Three with the same name to test name dedup
-		// Should come out as PROOT.GIF, PROOT1.GIF, PROOT2.GIF
-		msgstore_received_append(0x3333, RECORD_TYPE_FILE, file_rec, sizeof(file_rec));
-		msgstore_received_append(0x4040, RECORD_TYPE_FILE, file_rec, sizeof(file_rec));
-		msgstore_received_append(0x5050, RECORD_TYPE_FILE, file_rec, sizeof(file_rec));
-
-		// Bulk text so MESSAGES.MD spans more than one 4 KB cluster (exercises edge cases for the cluster boundary).
-		static const char bulk[] =
-			"The quick brown protogen jumps over the lazy synth. "
-			"Boop responsibly. This line pads the feed past one cluster.\n";
-		for (uint32_t i = 0; i < 40; i++) {
-			msgstore_received_append(0x4444 + i, RECORD_TYPE_TEXT, (const uint8_t*)bulk, sizeof(bulk) - 1);
-		}
-	}
 }
 
-// ---- own item (the user's ME/ file) ----
-SynthPassPeerRecord_T msgstore_own(void) {
-	return record_view(OWN_OFF);
+// ---- own items (the user's ME/ files, one per slot) ----
+static uint32_t own_off(MsgstoreOwnKind kind) {
+	return (kind == MSGSTORE_OWN_BOOP) ? BOOP_OWN_OFF : PROX_OWN_OFF;
 }
 
-int msgstore_own_present(void) {
-	return rec_valid_at(OWN_OFF) && record_view(OWN_OFF).data_length >= 11;
+SynthPassPeerRecord_T msgstore_own(MsgstoreOwnKind kind) {
+	return record_view(own_off(kind));
 }
 
-void msgstore_own_name(uint8_t out[11]) {
-	SynthPassPeerRecord_T r = record_view(OWN_OFF);
-	if (rec_valid_at(OWN_OFF) && r.data_length >= 11) memcpy(out, r.data, 11);
+int msgstore_own_present(MsgstoreOwnKind kind) {
+	uint32_t off = own_off(kind);
+	return rec_valid_at(off) && record_view(off).data_length >= 11;
+}
+
+void msgstore_own_name(MsgstoreOwnKind kind, uint8_t out[11]) {
+	uint32_t off = own_off(kind);
+	SynthPassPeerRecord_T r = record_view(off);
+	if (rec_valid_at(off) && r.data_length >= 11) memcpy(out, r.data, 11);
 	else memset(out, ' ', 11);
 }
 
-const uint8_t *msgstore_own_content(void) {
-	return record_view(OWN_OFF).data + 11;
+const uint8_t *msgstore_own_content(MsgstoreOwnKind kind) {
+	return record_view(own_off(kind)).data + 11;
 }
 
-uint16_t msgstore_own_content_len(void) {
-	SynthPassPeerRecord_T r = record_view(OWN_OFF);
-	return (rec_valid_at(OWN_OFF) && r.data_length >= 11) ? (uint16_t)(r.data_length - 11) : 0u;
+uint16_t msgstore_own_content_len(MsgstoreOwnKind kind) {
+	uint32_t off = own_off(kind);
+	SynthPassPeerRecord_T r = record_view(off);
+	return (rec_valid_at(off) && r.data_length >= 11) ? (uint16_t)(r.data_length - 11) : 0u;
 }
 
 __HIGH_CODE
-void msgstore_own_set(PeerRecordType_T type, const uint8_t name83[11],
+void msgstore_own_set(MsgstoreOwnKind kind, PeerRecordType_T type, const uint8_t name83[11],
                       const uint8_t *content, uint16_t content_len) {
 	if (content_len > MAX_DATA - 11u) content_len = MAX_DATA - 11u;
 	if (type == RECORD_TYPE_TEXT) content_len = utf8_trim(content, content_len);
 	uint8_t buf[MAX_DATA];
 	memcpy(buf, name83, 11);
 	memcpy(buf + 11, content, content_len);
-	flash_erase_sector(MSG_FLASH_ADDR + OWN_OFF);
-	flash_write_record(OWN_OFF, 0, type, buf, (uint16_t)(11u + content_len));
+	uint32_t off = own_off(kind);
+	flash_erase_sector(MSG_FLASH_ADDR + off);
+	flash_write_record(off, 0, type, buf, (uint16_t)(11u + content_len));
 }
 
 __HIGH_CODE
-void msgstore_own_clear(void) {
-	flash_erase_sector(MSG_FLASH_ADDR + OWN_OFF);
-	flash_write_record(OWN_OFF, 0, RECORD_TYPE_TEXT, (const uint8_t*)"", 0); // empty -> not present
+void msgstore_own_clear(MsgstoreOwnKind kind) {
+	uint32_t off = own_off(kind);
+	flash_erase_sector(MSG_FLASH_ADDR + off);
+	flash_write_record(off, 0, RECORD_TYPE_TEXT, (const uint8_t*)"", 0); // empty -> not present
+}
+
+// Returns the BOOP slot if present, else falls back to PROX. Used by the radio
+// to pick which own message to send in a BOOP_DATA frame.
+SynthPassPeerRecord_T msgstore_own_for_boop(void) {
+	if (msgstore_own_present(MSGSTORE_OWN_BOOP)) return msgstore_own(MSGSTORE_OWN_BOOP);
+	return msgstore_own(MSGSTORE_OWN_PROX);
+}
+
+// ---- config storage ----
+// Layout in the CONFIG sector: [u32 magic][caller's bytes...]. The magic
+// distinguishes a written record from the all-0xFF erased state.
+int msgstore_config_read(void *out, uint16_t size) {
+	const uint32_t *magic = (const uint32_t *)(MSG_FLASH_ADDR + CONFIG_OFF);
+	if (*magic != CONFIG_MAGIC) return 0;
+	memcpy(out, (const uint8_t *)(MSG_FLASH_ADDR + CONFIG_OFF + 4u), size);
+	return 1;
+}
+
+__HIGH_CODE
+void msgstore_config_write(const void *in, uint16_t size) {
+	if (size > 248u) size = 248u;            // header(4) + payload <= 252, comfortably under one page
+	uint8_t buf[256];
+	uint32_t magic = CONFIG_MAGIC;
+	memcpy(buf, &magic, 4);
+	memcpy(buf + 4, in, size);
+	flash_erase_sector(MSG_FLASH_ADDR + CONFIG_OFF);
+	flash_write(MSG_FLASH_ADDR + CONFIG_OFF, buf, 4 + size);
 }
 
 // ---- received messages ----
@@ -354,6 +382,28 @@ int msgstore_received_append(uint32_t peer_id, PeerRecordType_T type,
 	flash_write_record(recv_append_off, peer_id, type, data, len);
 	recv_append_off += need;
 	recv_count++;
+	return 0;
+}
+
+int msgstore_received_has(uint32_t peer_id, PeerRecordType_T type,
+                          const uint8_t *data, uint16_t len) {
+	if (len > MAX_DATA) len = MAX_DATA;
+	if (type == RECORD_TYPE_TEXT) len = utf8_trim(data, len);
+	MsgStoreIter it; SynthPassPeerRecord_T r;
+	for (msgstore_iter_init(&it); msgstore_iter_next(&it, &r); ) {
+		if (r.peer_id != peer_id) continue;
+		if (r.record_type != type) continue;
+		if (type == RECORD_TYPE_FILE) {
+			// Compare content only -- stored name83 may have been deduped to
+			// avoid an 8.3 collision, so the wire name won't necessarily match.
+			uint16_t in_cl = (len >= 11) ? (uint16_t)(len - 11) : 0u;
+			if (msgstore_record_content_len(r) != in_cl) continue;
+			if (memcmp(msgstore_record_content(r), data + 11, in_cl) == 0) return 1;
+		} else {
+			if (r.data_length != len) continue;
+			if (memcmp(r.data, data, len) == 0) return 1;
+		}
+	}
 	return 0;
 }
 

@@ -13,6 +13,7 @@
  */
 #include "usb.h"
 #include "msgstore.h"
+#include "config.h"
 #include "synthpass.h"   // SYNTHPASS_MAX_MSG_SIZE
 #include <string.h>
 #include "ch32fun.h"
@@ -99,11 +100,11 @@ static const uint8_t BootSector[512] = {
 
 // ---------------------------------------------------------------------------
 // Volume layout:
-//   root/  MESSAGES.MD  (markdown feed, synthesized on-the-fly, NEVER stored)
+//   root/  MESSAGES.HTM  (HTML feed, synthesized on-the-fly, NEVER stored)
 //   root/  ME/          (subdirectory holding the user's single own item)
 //   root/  <file>.<ext> (one per RECORD_TYPE_FILE received record)
 //   ME/    <own file>   (the host-editable broadcast item; .txt=text else=file)
-// TEXT received records are not files - they only appear inside MESSAGES.MD.
+// TEXT received records are not files - they only appear inside MESSAGES.HTM.
 // ---------------------------------------------------------------------------
 
 static uint32_t msc_file_record_count(void) {
@@ -133,11 +134,16 @@ static int msc_filerec(uint32_t k, SynthPassPeerRecord_T *out) {
 	return 0;
 }
 
-// ---- MESSAGES.MD generator (built on the fly; never stored in flash) -------
-// Per record: "<uid>: <text>\n----\n"  or  "<uid>: ![<uid>](<NAME.EXT>)\n----\n"
+// ---- MESSAGES.HTM generator (built on the fly; never stored in flash) -------
+// A fixed HTML preamble, then one block per record:
+//   TEXT: "<p><span class=u>UID</span> CONTENT</p>\n"
+//   FILE: "<p><span class=u>UID</span> <img src=NAME.EXT></p>\n"
 // UID is ":xx:xx:xx:xx" (little-endian bytes, matching radio.c's printf_uid).
-#define MD_SEP_LEN   6u                 // "\n----\n"
-#define MD_MAX_BLOCK 288u               // >= uid(12)+": "(2)+content(<=256)+"\n----\n"(6)
+static const char HTML_HEADER[] =
+	"<!doctype html><meta charset=utf-8><title>SynthPass</title>"
+	"<style>.u{opacity:.5;font-family:monospace}</style>\n";
+#define HTML_HEADER_LEN (sizeof(HTML_HEADER) - 1)
+#define MD_MAX_BLOCK 320u               // >= 42 + content(<=256) for TEXT; FILE is smaller
 
 static const char MD_HEX[] = "0123456789abcdef";
 
@@ -165,14 +171,15 @@ static uint32_t md_filename(SynthPassPeerRecord_T rec, char *out) {
 }
 
 // Formatted feed-block length of a record (no buffer touched).
+//   TEXT: <p><span class=u>UID</span> CONTENT</p>\n   = 17+12+8+content+5 = 42+content
+//   FILE: <p><span class=u>UID</span> <img src=NAME.EXT></p>\n = 17+12+8+9+fnlen+6 = 52+fnlen
 static uint32_t md_block_len(SynthPassPeerRecord_T rec) {
 	if (rec.record_type == RECORD_TYPE_FILE) {
 		char fn[13];
 		uint32_t fnlen = md_filename(rec, fn);
-		// uid + ": " + "![" + uid + "](" + name + ")" + sep
-		return 12u + 2u + 2u + 12u + 2u + fnlen + 1u + MD_SEP_LEN;
+		return 52u + fnlen;
 	}
-	return 12u + 2u + msgstore_record_content_len(rec) + MD_SEP_LEN;
+	return 42u + msgstore_record_content_len(rec);
 }
 
 static uint32_t md_total_len(void) {
@@ -180,7 +187,8 @@ static uint32_t md_total_len(void) {
 	static uint32_t cache_n = 0xFFFFFFFFu, cache_t = 0;
 	uint32_t n = msgstore_received_count();
 	if (n != cache_n) {
-		uint32_t total = 0; MsgStoreIter it; SynthPassPeerRecord_T rec;
+		uint32_t total = HTML_HEADER_LEN;
+		MsgStoreIter it; SynthPassPeerRecord_T rec;
 		for (msgstore_iter_init(&it); msgstore_iter_next(&it, &rec); )
 			total += md_block_len(rec);
 		cache_t = total; cache_n = n;
@@ -188,7 +196,7 @@ static uint32_t md_total_len(void) {
 	return cache_t;
 }
 
-// Clusters occupied by MESSAGES.MD (>= 1 even when the feed is empty).
+// Clusters occupied by MESSAGES.HTM (>= 1 even when the feed is empty).
 static uint16_t msc_md_clusters(void) {
 	uint32_t c = (md_total_len() + 4095u) / 4096u;
 	return c ? (uint16_t)c : 1u;
@@ -202,30 +210,40 @@ static uint32_t md_build_block(SynthPassPeerRecord_T rec) {
 	char uid[13];
 	md_uid(rec.peer_id, uid);
 	uint8_t *p = md_block_buf;
-	memcpy(p, uid, 12); p += 12;
-	*p++ = ':'; *p++ = ' ';
+	memcpy(p, "<p><span class=u>", 17); p += 17;
+	memcpy(p, uid, 12);                 p += 12;
+	memcpy(p, "</span> ", 8);           p += 8;
 	if (rec.record_type == RECORD_TYPE_FILE) {
 		char fn[13];
 		uint32_t fnlen = md_filename(rec, fn);
-		*p++ = '!'; *p++ = '[';
-		memcpy(p, uid, 12); p += 12;
-		*p++ = ']'; *p++ = '(';
-		memcpy(p, fn, fnlen); p += fnlen;
-		*p++ = ')';
+		memcpy(p, "<img src=", 9);       p += 9;
+		memcpy(p, fn, fnlen);            p += fnlen;
+		memcpy(p, "></p>\n", 6);         p += 6;
 	} else {
 		uint32_t clen = msgstore_record_content_len(rec);
-		if (clen > MD_MAX_BLOCK - 20u) clen = MD_MAX_BLOCK - 20u; // never overflow the buffer
+		if (clen > MD_MAX_BLOCK - 50u) clen = MD_MAX_BLOCK - 50u;
 		memcpy(p, msgstore_record_content(rec), clen); p += clen;
+		memcpy(p, "</p>\n", 5);          p += 5;
 	}
-	*p++ = '\n'; *p++ = '-'; *p++ = '-'; *p++ = '-'; *p++ = '-'; *p++ = '\n';
 	return (uint32_t)(p - md_block_buf);
 }
 
 // Produce `len` bytes of the feed starting at byte md_offset. Offset-addressable,
 // so it composes with any host chunking; past-EOF stays zero.
+// Layout: [HTML_HEADER][record block 0][record block 1]...
 static void md_emit(uint32_t md_offset, uint8_t *dst, uint32_t len) {
 	for (uint32_t i = 0; i < len; i++) dst[i] = 0;
-	uint32_t pos = 0, win_end = md_offset + len;
+	uint32_t win_end = md_offset + len;
+
+	// Header
+	if (md_offset < HTML_HEADER_LEN) {
+		uint32_t take = HTML_HEADER_LEN - md_offset;
+		if (take > len) take = len;
+		memcpy(dst, HTML_HEADER + md_offset, take);
+	}
+
+	// Records, starting at offset HTML_HEADER_LEN
+	uint32_t pos = HTML_HEADER_LEN;
 	MsgStoreIter it; SynthPassPeerRecord_T rec;
 	for (msgstore_iter_init(&it); msgstore_iter_next(&it, &rec); ) {
 		uint32_t block_start = pos;
@@ -240,23 +258,30 @@ static void md_emit(uint32_t md_offset, uint8_t *dst, uint32_t len) {
 }
 
 // ---- FAT + directory + LBA mapping (FAT12; variable multi-cluster layout) ---
-// Cluster map (mdc = MESSAGES.MD cluster count):
-//   2 .. 1+mdc   MESSAGES.MD (chained)    3+mdc       the own item's file (if present)
-//   2+mdc        ME/ subdirectory          4+mdc + k   received FILE record k
+// Cluster map (mdc = MESSAGES.HTM cluster count):
+//   2 .. 1+mdc   MESSAGES.HTM (chained)    3+mdc       PROX own file (if present)
+//   2+mdc        ME/ subdirectory          4+mdc       BOOP own file (if present)
+//   5+mdc        SYNTHPAS.INI (always)     6+mdc + k   received FILE record k
 // The volume is FAT12 (< 4085 clusters), so FAT entries are 12-bit.
 static uint16_t fat_entry(uint16_t c, uint16_t mdc, uint32_t fcount) {
 	if (c == 0) return 0xFF8;                 // media descriptor
 	if (c == 1) return 0xFFF;                 // reserved
-	uint16_t md_last = 1 + mdc;               // MESSAGES.MD = clusters 2..md_last
+	uint16_t md_last = 1 + mdc;               // MESSAGES.HTM = clusters 2..md_last
 	if (c >= 2 && c <= md_last) return (c < md_last) ? (uint16_t)(c + 1) : 0xFFF;
 	if (c == 2 + mdc) return 0xFFF;           // ME/ subdir (single)
-	if (c == 3 + mdc) return msgstore_own_present() ? 0xFFF : 0x000; // own file
-	uint16_t fc_first = 4 + mdc;
+	// The three own clusters are always marked as allocated, even when the
+	// PROX/BOOP slots are empty. Otherwise vfat sees them as free and the
+	// host can reuse them for unrelated writes (e.g. SYNTHPAS.INI ends up in
+	// BOOP's cluster when BOOP.TXT isn't present).
+	if (c == 3 + mdc) return 0xFFF;           // PROX own (reserved)
+	if (c == 4 + mdc) return 0xFFF;           // BOOP own (reserved)
+	if (c == 5 + mdc) return 0xFFF;           // SYNTHPAS.INI (always synthesized)
+	uint16_t fc_first = 6 + mdc;
 	if (c >= fc_first && c < fc_first + fcount) return 0xFFF; // received file (single)
 	return 0x000;                             // free
 }
 
-typedef enum { DA_NONE, DA_MD, DA_ME, DA_OWN, DA_FILE } da_kind_t;
+typedef enum { DA_NONE, DA_MD, DA_ME, DA_OWN_PROX, DA_OWN_BOOP, DA_INI, DA_FILE } da_kind_t;
 
 // Classify a data-area LBA. *base = byte offset of this sector within the file;
 // *idx = received-FILE index (DA_FILE only).
@@ -265,8 +290,10 @@ static da_kind_t msc_lba_kind(uint32_t lba, uint16_t mdc, uint32_t *base, uint32
 	uint32_t cluster = 2 + ds / 8, sic = ds % 8;
 	if (cluster >= 2 && cluster <= 1u + mdc) { *base = (cluster - 2) * 4096u + sic * 512u; return DA_MD; }
 	if (cluster == 2u + mdc) { *base = sic * 512u; return DA_ME; }
-	if (cluster == 3u + mdc) { *base = sic * 512u; return DA_OWN; }
-	uint32_t fc_first = 4u + mdc;
+	if (cluster == 3u + mdc) { *base = sic * 512u; return DA_OWN_PROX; }
+	if (cluster == 4u + mdc) { *base = sic * 512u; return DA_OWN_BOOP; }
+	if (cluster == 5u + mdc) { *base = sic * 512u; return DA_INI; }
+	uint32_t fc_first = 6u + mdc;
 	if (cluster >= fc_first && cluster < fc_first + msc_file_record_count()) {
 		*idx = cluster - fc_first; *base = sic * 512u; return DA_FILE;
 	}
@@ -285,13 +312,13 @@ static void set_entry(uint8_t entry[32], const uint8_t name11[11], uint8_t attr,
 	entry[0x1E] = (size >> 16) & 0xFF; entry[0x1F] = (size >> 24) & 0xFF;
 }
 
-// Root directory: 0 = MESSAGES.MD, 1 = ME/ (dir), 2+ = received FILE records.
+// Root directory: 0 = MESSAGES.HTM, 1 = ME/ (dir), 2+ = received FILE records.
 static uint32_t msc_root_nfiles(void) { return 2 + msc_file_record_count(); }
 
 static void msc_root_entry(uint32_t slot, uint8_t entry[32], uint16_t mdc) {
 	uint8_t name[11]; memset(name, ' ', 11);
 	if (slot == 0) {
-		memcpy(name, "MESSAGES", 8); memcpy(name + 8, "MD", 2);
+		memcpy(name, "MESSAGES", 8); memcpy(name + 8, "HTM", 3);
 		set_entry(entry, name, 0x01, FILE_CLUSTER, md_total_len());
 	} else if (slot == 1) {
 		memcpy(name, "ME", 2);
@@ -300,12 +327,19 @@ static void msc_root_entry(uint32_t slot, uint8_t entry[32], uint16_t mdc) {
 		SynthPassPeerRecord_T rec;
 		if (!msc_filerec(slot - 2, &rec)) { memset(entry, 0, 32); return; } // out of range
 		msgstore_file_name(rec, name);
-		set_entry(entry, name, 0x01, (uint16_t)(4 + mdc + (slot - 2)), msgstore_record_content_len(rec));
+		set_entry(entry, name, 0x01, (uint16_t)(6 + mdc + (slot - 2)), msgstore_record_content_len(rec));
 	}
 }
 
-// ME/ subdirectory: 0 = ".", 1 = "..", 2 = the own item (if present).
-static uint32_t msc_me_nentries(void) { return msgstore_own_present() ? 3 : 2; }
+// ME/ subdirectory: 0 = ".", 1 = "..", then PROX (if present), BOOP (if
+// present), and SYNTHPAS.INI (always synthesized). PROX always lives in cluster
+// 3+mdc and BOOP in 4+mdc regardless of which idx they occupy in the listing.
+static uint32_t msc_me_nentries(void) {
+	uint32_t n = 2 + 1; // . , .. , SYNTHPAS.INI (always)
+	if (msgstore_own_present(MSGSTORE_OWN_PROX)) n++;
+	if (msgstore_own_present(MSGSTORE_OWN_BOOP)) n++;
+	return n;
+}
 
 static void msc_me_entry(uint32_t idx, uint8_t entry[32], uint16_t mdc) {
 	uint8_t name[11]; memset(name, ' ', 11);
@@ -316,8 +350,22 @@ static void msc_me_entry(uint32_t idx, uint8_t entry[32], uint16_t mdc) {
 		name[0] = '.'; name[1] = '.';
 		set_entry(entry, name, 0x10, 0, 0);                     // ".." -> root
 	} else {
-		msgstore_own_name(name);
-		set_entry(entry, name, 0x20 /*writable*/, (uint16_t)(3 + mdc), msgstore_own_content_len());
+		int prox = msgstore_own_present(MSGSTORE_OWN_PROX);
+		int boop = msgstore_own_present(MSGSTORE_OWN_BOOP);
+		uint32_t slot = idx - 2;  // 0-indexed file slot
+		if (prox && slot == 0) {
+			msgstore_own_name(MSGSTORE_OWN_PROX, name);
+			set_entry(entry, name, 0x20, (uint16_t)(3 + mdc), msgstore_own_content_len(MSGSTORE_OWN_PROX));
+		} else if (boop && slot == (uint32_t)prox) {
+			msgstore_own_name(MSGSTORE_OWN_BOOP, name);
+			set_entry(entry, name, 0x20, (uint16_t)(4 + mdc), msgstore_own_content_len(MSGSTORE_OWN_BOOP));
+		} else if (slot == (uint32_t)(prox + boop)) {
+			// SYNTHPAS.INI, always last so its slot index is deterministic.
+			memcpy(name, "SYNTHPASINI", 11);
+			set_entry(entry, name, 0x20, (uint16_t)(5 + mdc), config_rendered_len());
+		} else {
+			memset(entry, 0, 32);
+		}
 	}
 }
 
@@ -357,14 +405,28 @@ static volatile uint32_t msc_current_offset = 0;
 static volatile uint32_t msc_bytes_remaining = 0;
 static volatile uint32_t msc_write_lba = 0;   // LBA of the in-progress WRITE_10
 
-// ME/ host-write capture. The host edits/uploads/renames/deletes the single own
-// item in ME/. Buffer the ME/ subdirectory sector (which carries the file's
-// name/size/presence) and any own-file content write, then commit to flash from
-// usb_task() - never from the IRQ. me_first_lba = the ME/ subdir cluster's LBA.
+// ME/ host-write capture. Buffer the ME/ subdir, PROX content, BOOP content,
+// and SYNTHPAS.INI content into separate buffers (each cluster has its own LBA
+// window); commit from usb_task. me_first_lba locates the ME/ subdir cluster;
+// own_prox/own_boop/ini_first_lba are the three writable file clusters.
 static volatile uint32_t me_first_lba;
+static volatile uint32_t own_prox_first_lba;
+static volatile uint32_t own_boop_first_lba;
+static volatile uint32_t ini_first_lba;
 static uint8_t  me_subdir_buf[512];
-static uint8_t  own_content_buf[256];
-static volatile uint8_t  me_have_subdir, own_have_content, me_commit_pending;
+static uint8_t  prox_content_buf[256];
+static uint8_t  boop_content_buf[256];
+static uint8_t  ini_content_buf[384];        // mirrors config.c's rendered_buf size
+static uint16_t ini_content_len;             // bytes of valid INI content captured
+// Atomic-save editors write the new file to a fresh cluster (just past our
+// reserved+FILE area) and then rewrite the dir entry to point there. Mirror
+// that cluster too so writes still get captured; the commit reads each file's
+// current cluster from its dir entry and routes the right buffer over.
+static uint8_t  temp_content_buf[384];
+static volatile uint16_t temp_content_len;
+static volatile uint16_t temp_cluster_num;     // FAT cluster number of the temp slot at WRITE_10 time
+static volatile uint32_t temp_first_lba;
+static volatile uint8_t  me_have_subdir, prox_have_content, boop_have_content, ini_have_content, temp_have_content, me_commit_pending;
 
 // Decide and send the next IN packet (read / inquiry / etc.), or the CSW.
 static void MSC_PrepareDataIn(void) {
@@ -451,10 +513,13 @@ static void MSC_PrepareDataIn(void) {
 						}
 					}
 				}
-			} else if (kind == DA_OWN || kind == DA_FILE) {
+			} else if (kind == DA_OWN_PROX || kind == DA_OWN_BOOP || kind == DA_INI || kind == DA_FILE) {
 				const uint8_t *content; uint32_t clen;
-				if (kind == DA_OWN) {
-					content = msgstore_own_content(); clen = msgstore_own_content_len();
+				if (kind == DA_OWN_PROX || kind == DA_OWN_BOOP) {
+					MsgstoreOwnKind k = (kind == DA_OWN_PROX) ? MSGSTORE_OWN_PROX : MSGSTORE_OWN_BOOP;
+					content = msgstore_own_content(k); clen = msgstore_own_content_len(k);
+				} else if (kind == DA_INI) {
+					content = config_rendered(); clen = config_rendered_len();
 				} else {
 					SynthPassPeerRecord_T rec;
 					if (!msc_filerec(idx, &rec)) { content = (const uint8_t*)""; clen = 0; }
@@ -596,7 +661,14 @@ void HandleDataOut(struct _USBState *ctx, int endp, uint8_t *data, int len) {
 				msc_state = MSC_DATA_OUT;
 				msc_bytes_remaining = cbw.DataTransferLength;
 				msc_write_lba = (cbw.CB[2] << 24) | (cbw.CB[3] << 16) | (cbw.CB[4] << 8) | cbw.CB[5];
-				me_first_lba = START_DATA + (uint32_t)msc_md_clusters() * 8u; // ME/ subdir cluster
+				me_first_lba       = START_DATA + (uint32_t)msc_md_clusters() * 8u;
+				own_prox_first_lba = me_first_lba + 8u;   // cluster 3+mdc (PROX)
+				own_boop_first_lba = me_first_lba + 16u;  // cluster 4+mdc (BOOP)
+				ini_first_lba      = me_first_lba + 24u;  // cluster 5+mdc (SYNTHPAS.INI)
+				// First free cluster after all reserved + FILE records -- this
+				// is where vfat puts the temp file of an atomic-rename save.
+				temp_cluster_num = (uint16_t)(6u + msc_md_clusters() + msc_file_record_count());
+				temp_first_lba   = me_first_lba + 32u + (uint32_t)msc_file_record_count() * 8u;
 				break;
 
 			// -- NO DATA COMMANDS --
@@ -630,12 +702,41 @@ void HandleDataOut(struct _USBState *ctx, int endp, uint8_t *data, int len) {
 					}
 					me_have_subdir = 1;
 				}
-			} else if (lba >= START_DATA) {           // own file content (reallocated cluster)
+			} else if (lba >= own_prox_first_lba && lba < own_prox_first_lba + 8) {
+				// PROX cluster. Other writes (.fseventsd/.Trashes/etc.) miss
+				// both windows and get a CSW success with no flash capture.
 				for (uint32_t i = 0; i < n; i++) {
 					uint32_t off = boff + i;
-					if (off < sizeof(own_content_buf)) own_content_buf[off] = data[i];
+					if (off < sizeof(prox_content_buf)) prox_content_buf[off] = data[i];
 				}
-				own_have_content = 1;
+				prox_have_content = 1;
+			} else if (lba >= own_boop_first_lba && lba < own_boop_first_lba + 8) {
+				for (uint32_t i = 0; i < n; i++) {
+					uint32_t off = boff + i;
+					if (off < sizeof(boop_content_buf)) boop_content_buf[off] = data[i];
+				}
+				boop_have_content = 1;
+			} else if (lba >= ini_first_lba && lba < ini_first_lba + 8) {
+				for (uint32_t i = 0; i < n; i++) {
+					uint32_t off = boff + i;
+					if (off < sizeof(ini_content_buf)) ini_content_buf[off] = data[i];
+				}
+				// Track the highest byte the host has written so the commit sees
+				// the actual file length, not whatever zeros the host padded the
+				// sector with past EOF.
+				uint16_t end = (uint16_t)(boff + n);
+				if (end > ini_content_len) ini_content_len = end;
+				ini_have_content = 1;
+			} else if (lba >= temp_first_lba && lba < temp_first_lba + 8) {
+				// Atomic-save temp file. Whichever ME/ entry ends up pointing at
+				// this cluster after the dir update gets these bytes (see usb_task).
+				for (uint32_t i = 0; i < n; i++) {
+					uint32_t off = boff + i;
+					if (off < sizeof(temp_content_buf)) temp_content_buf[off] = data[i];
+				}
+				uint16_t end = (uint16_t)(boff + n);
+				if (end > temp_content_len) temp_content_len = end;
+				temp_have_content = 1;
 			}
 
 			msc_bytes_remaining -= n;
@@ -685,18 +786,22 @@ void usb_init(void) {
 	USBFSSetup();
 }
 
-// Find the own item's 8.3 entry in a captured ME/ subdir sector.
-// Returns 1 + fills name83/size if present, 0 if ME/ is empty (no file entry).
-static int me_parse_own(const uint8_t *sec, uint8_t name83[11], uint32_t *size) {
-	for (int e = 0; e < 16; e++) {              // 16 entries in a 512-byte sector
+// Find the ME/ entry whose 8.3 name begins with `prefix4` (e.g. "PROX" or
+// "BOOP"). Returns 1 + fills name83/size/cluster if present, 0 otherwise.
+// Skips ./../ long-filename entries and deleted entries.
+static int me_parse_slot(const uint8_t *sec, const char *prefix4,
+                         uint8_t name83[11], uint32_t *size, uint16_t *cluster) {
+	for (int e = 0; e < 16; e++) {
 		const uint8_t *en = sec + e * 32;
 		uint8_t c0 = en[0], attr = en[0x0B];
-		if (c0 == 0x00) break;                  // end of directory
-		if (c0 == 0xE5) continue;               // deleted
-		if (attr == 0x0F) continue;             // long-filename entry
-		if (attr & 0x18) continue;              // subdirectory (. / ..) or volume label
-		memcpy(name83, en, 11);                 // first real file = the own item
+		if (c0 == 0x00) break;
+		if (c0 == 0xE5) continue;
+		if (attr == 0x0F) continue;
+		if (attr & 0x18) continue;
+		if (memcmp(en, prefix4, 4) != 0) continue;
+		memcpy(name83, en, 11);
 		*size = en[0x1C] | (en[0x1D] << 8) | (en[0x1E] << 16) | ((uint32_t)en[0x1F] << 24);
+		if (cluster) *cluster = (uint16_t)(en[0x1A] | (en[0x1B] << 8));
 		return 1;
 	}
 	return 0;
@@ -714,24 +819,69 @@ void usb_task(void) {
 	// Persist a host change to ME/ (flash erase/write must run here, not the IRQ).
 	if (me_commit_pending) {
 		me_commit_pending = 0;
-		uint8_t name83[11]; uint32_t fsize = 0;
-		if (me_parse_own(me_subdir_buf, name83, &fsize)) {
-			PeerRecordType_T type = name83_is_txt(name83) ? RECORD_TYPE_TEXT : RECORD_TYPE_FILE;
-			if (own_have_content) {              // edit/upload: use the written content
-				uint16_t l = (fsize > SYNTHPASS_MAX_MSG_SIZE) ? SYNTHPASS_MAX_MSG_SIZE : (uint16_t)fsize;
-				msgstore_own_set(type, name83, own_content_buf, l);
-			} else {                             // rename: keep content, update name/type
-				uint16_t clen = msgstore_own_content_len();
-				uint8_t tmp[256];
-				if (clen > sizeof(tmp)) clen = sizeof(tmp);
-				memcpy(tmp, msgstore_own_content(), clen); // copy before own_set erases flash
-				msgstore_own_set(type, name83, tmp, clen);
+		// Pick the right capture buffer for this file: if the dir entry's
+		// cluster matches the firmware's reserved cluster for this slot, use
+		// the dedicated buf; if it matches the atomic-save temp cluster, use
+		// the temp buf. Otherwise we missed the content (host wrote somewhere
+		// we don't watch) -- skip this commit.
+		uint16_t mdc = msc_md_clusters();
+		uint16_t reserved_prox = (uint16_t)(3 + mdc);
+		uint16_t reserved_boop = (uint16_t)(4 + mdc);
+		uint16_t reserved_ini  = (uint16_t)(5 + mdc);
+		struct slot { MsgstoreOwnKind kind; const char *prefix; uint8_t *cbuf; size_t cbuf_sz;
+		              uint8_t have_content; uint16_t reserved_cluster; };
+		struct slot slots[2] = {
+			{ MSGSTORE_OWN_PROX, "PROX", prox_content_buf, sizeof(prox_content_buf), prox_have_content, reserved_prox },
+			{ MSGSTORE_OWN_BOOP, "BOOP", boop_content_buf, sizeof(boop_content_buf), boop_have_content, reserved_boop },
+		};
+		for (int s = 0; s < 2; s++) {
+			uint8_t name83[11]; uint32_t fsize = 0; uint16_t cluster = 0;
+			if (me_parse_slot(me_subdir_buf, slots[s].prefix, name83, &fsize, &cluster)) {
+				PeerRecordType_T type = name83_is_txt(name83) ? RECORD_TYPE_TEXT : RECORD_TYPE_FILE;
+				const uint8_t *src = NULL; uint16_t src_sz = 0;
+				if (cluster == slots[s].reserved_cluster && slots[s].have_content) {
+					src = slots[s].cbuf;        src_sz = slots[s].cbuf_sz;
+				} else if (cluster == temp_cluster_num && temp_have_content) {
+					src = temp_content_buf;     src_sz = sizeof(temp_content_buf);
+				}
+				if (src) {
+					uint16_t l = (fsize > SYNTHPASS_MAX_MSG_SIZE) ? SYNTHPASS_MAX_MSG_SIZE : (uint16_t)fsize;
+					if (l > src_sz) l = src_sz;
+					msgstore_own_set(slots[s].kind, type, name83, src, l);
+				} else { // rename of an unchanged file: keep content, update name/type only
+					uint16_t clen = msgstore_own_content_len(slots[s].kind);
+					uint8_t tmp[256];
+					if (clen > sizeof(tmp)) clen = sizeof(tmp);
+					memcpy(tmp, msgstore_own_content(slots[s].kind), clen);
+					msgstore_own_set(slots[s].kind, type, name83, tmp, clen);
+				}
+			} else {
+				msgstore_own_clear(slots[s].kind);
 			}
-		} else {
-			msgstore_own_clear();                // ME/ emptied -> broadcast nothing
 		}
-		own_have_content = 0;
-		me_have_subdir = 0;
+		// SYNTHPAS.INI: same routing logic, pushed into config.c.
+		{
+			uint8_t name83[11]; uint32_t fsize = 0; uint16_t cluster = 0;
+			if (me_parse_slot(me_subdir_buf, "SYNT", name83, &fsize, &cluster)) {
+				const uint8_t *src = NULL; uint16_t src_sz = 0;
+				if (cluster == reserved_ini && ini_have_content) {
+					src = ini_content_buf;  src_sz = sizeof(ini_content_buf);
+				} else if (cluster == temp_cluster_num && temp_have_content) {
+					src = temp_content_buf; src_sz = sizeof(temp_content_buf);
+				}
+				if (src) {
+					uint16_t l = (fsize > src_sz) ? src_sz : (uint16_t)fsize;
+					config_apply_text(src, l);
+				}
+			}
+		}
+		prox_have_content = 0;
+		boop_have_content = 0;
+		ini_have_content  = 0;
+		ini_content_len   = 0;
+		temp_have_content = 0;
+		temp_content_len  = 0;
+		me_have_subdir    = 0;
 	}
 
 	// When the host has taken the previous MSC IN packet, send the next.

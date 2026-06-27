@@ -15,6 +15,7 @@
 #include "usb.h"
 #include "msgstore.h"
 #include "radio.h"
+#include "config.h"
 #include "synthpass.h"
 #include "board.h"
 
@@ -35,8 +36,15 @@ int main()
 
 	funGpioInitAll();
 	funPinMode( LED_PIN, GPIO_CFGLR_OUT_10Mhz_PP );
+#ifdef HAVE_QWIIC_GPIO
+	funPinMode( QWIIC_PROX_PIN, GPIO_CFGLR_OUT_10Mhz_PP );
+	funPinMode( QWIIC_BOOP_PIN, GPIO_CFGLR_OUT_10Mhz_PP );
+	funDigitalWrite( QWIIC_PROX_PIN, FUN_LOW );
+	funDigitalWrite( QWIIC_BOOP_PIN, FUN_LOW );
+#endif
 
 	msgstore_init(); // seed the message store into flash if needed
+	config_init();   // load host-editable config (or defaults) from its sector
 	usb_init();      // bring up CDC + MSC
 	radio_init();    // protocol state + iSLER radio; start broadcasting
 

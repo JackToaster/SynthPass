@@ -14,6 +14,8 @@
 #include "synthpass.h"
 #include "board.h"
 #include "lib_rand.h"
+#include "msgstore.h"
+#include "config.h"
 
 __attribute__((aligned(4))) static SynthPass_Frame_T tx_frame = {};
 static uint32_t synthpass_uid;
@@ -100,23 +102,34 @@ static int insert_peer(uint32_t peer_uid, SynthPass_PeerState_T *peers, int rssi
 
 	// printf("oldest %d\r\n", oldest);
 	// clear the oldest entry
+	memset(&peers[oldest], 0, sizeof(peers[oldest]));
 	peers[oldest].peer_uid = peer_uid;
 	peers[oldest].calib_rssi = rssi;
-	peers[oldest].next_prox = NOBOOP;
 	peers[oldest].last_seen = now;
-	peers[oldest].resp.type = SYNTHPASS_BROADCAST; // no response
+	// next_prox=NOBOOP, resp.type=BROADCAST, our_*_data_acked=0 are all 0/zero values
 
 	return oldest;
 }
 
 static uint8_t peer_add_response(SynthPass_PeerState_T *peer, SynthPass_MessageType_T type) {
-	uint32_t now = funSysTick32();
-	// don't clobber already queue'd responses
-	if(peer->resp.type != 0) {
+	// Priority ladder for the single response slot:
+	//   PROX                 -- lowest; pure ranging, regenerates every broadcast
+	//   BOOP / UNBOOP        -- state-change signals; pre-empt a pending PROX so
+	//                           the peer learns about the transition without
+	//                           waiting for another broadcast round-trip
+	//   *_DATA / *_DATA_ACK  -- highest; pre-empt anything
+	uint8_t high_pri = (type == SYNTHPASS_PROX_DATA || type == SYNTHPASS_BOOP_DATA
+	                 || type == SYNTHPASS_PROX_DATA_ACK || type == SYNTHPASS_BOOP_DATA_ACK);
+	uint8_t state_change = (type == SYNTHPASS_BOOP || type == SYNTHPASS_UNBOOP);
+	SynthPass_MessageType_T have = peer->resp.type;
+	int ok = (have == SYNTHPASS_BROADCAST)
+	      || high_pri
+	      || (state_change && have == SYNTHPASS_PROX);
+	if(!ok) {
 		return 0;
 	}
 	SynthPass_QueuedResponse_T resp = {
-		.send_at = now + (RESPONSE_DELAY_MS * DELAY_MS_TIME),
+		.send_at = funSysTick32() + (RESPONSE_DELAY_MS * DELAY_MS_TIME),
 		.type = type
 	};
 	peer->resp = resp;
@@ -139,14 +152,31 @@ static void peer_send_response(SynthPass_PeerState_T *peer) {
 		uint8_t status = synthpass_tx(resp_type, (uint8_t*)&msg, sizeof(msg));
 		(void)status;
 	} else if(resp_type == SYNTHPASS_BOOP_DATA || resp_type == SYNTHPASS_PROX_DATA) { // Data message
-		printf("Send data\r\n");
-		// TODO correct message type/data
-		SynthPass_Prox_T msg = {
-			.peer_uid=peer->peer_uid,
-			.rx_rssi=peer->calib_rssi
-		};
+		// Pack our own record onto the wire mirroring the msgstore RECEIVED view:
+		//   [peer_uid u32][record_type u8][payload...]
+		// where payload is what msgstore_received_append() expects -- raw content
+		// for TEXT, name83[11]+content for FILE. OWN always stores with the
+		// 11-byte name prefix (it's how MSC exposes the file), so strip it for
+		// TEXT before sending. PROX uses PROX.TXT; BOOP uses BOOP.TXT if present
+		// (else falls back to PROX.TXT via msgstore_own_for_boop).
+		SynthPassPeerRecord_T own = (resp_type == SYNTHPASS_BOOP_DATA)
+		                            ? msgstore_own_for_boop()
+		                            : msgstore_own(MSGSTORE_OWN_PROX);
+		if(own.data_length < 11) {
+			return; // empty / not present, nothing to send
+		}
+		uint16_t prefix = (own.record_type == RECORD_TYPE_TEXT) ? 11u : 0u;
+		const uint8_t *src = own.data + prefix;
+		uint16_t src_len = (uint16_t)(own.data_length - prefix);
 
-		uint8_t status = synthpass_tx(resp_type, (uint8_t*)&msg, sizeof(msg));
+		SynthPass_ProxData_T msg;
+		msg.peer_uid = peer->peer_uid;
+		msg.user_info[0] = (uint8_t) own.record_type;
+		uint16_t max_payload = (uint16_t)(sizeof(msg.user_info) - 1);
+		uint16_t copy = (src_len > max_payload) ? max_payload : src_len;
+		memcpy(&msg.user_info[1], src, copy);
+		uint16_t tx_len = (uint16_t)(sizeof(msg.peer_uid) + 1u + copy);
+		uint8_t status = synthpass_tx(resp_type, (uint8_t*)&msg, (uint8_t)tx_len);
 		(void)status;
 	} else if(resp_type == SYNTHPASS_BOOP_DATA_ACK || resp_type == SYNTHPASS_PROX_DATA_ACK) { // ACK message
 		printf("Send data ack\r\n");
@@ -177,25 +207,25 @@ static uint8_t is_any_peer_active(SynthPass_PeerState_T *peers) {
 }
 
 static int next_queued_peer_idx(SynthPass_PeerState_T *peers) {
-	uint32_t earliest = UINT32_MAX;
+	uint32_t earliest = 0;
 	int earliest_idx = -1;
 	for(uint32_t i = 0; i < MAX_PEERS; ++i) {
 		if(peers[i].peer_uid == 0) continue; // uninitialized, skip
 		if(peers[i].resp.type != SYNTHPASS_BROADCAST) {
-			if((int32_t)(peers[i].resp.send_at - earliest) < 0) {
+			// First candidate seeds `earliest`; later ones overtake it only if
+			// strictly older (wrap-safe). Tracking the "found" state separately
+			// avoids a UINT32_MAX sentinel that would break the signed-diff
+			// comparison on small tick values.
+			if(earliest_idx == -1 || (int32_t)(peers[i].resp.send_at - earliest) < 0) {
 				earliest = peers[i].resp.send_at;
 				earliest_idx = i;
 			}
 		}
 	}
 
-	// check if the earliest is ready to transmit, if so send it
+	if(earliest_idx == -1) return -1;
 	uint32_t now = funSysTick32();
-	if((int32_t)(now - earliest) > 0) {
-		return earliest_idx;
-	} else {
-		return -1;
-	}
+	return ((int32_t)(now - earliest) > 0) ? earliest_idx : -1;
 }
 
 // loop through peers and timeout any olds
@@ -286,12 +316,23 @@ static void incoming_frame_handler(SynthPass_PeerState_T *peers) {
 					printf_uid(frame->msg.hdr.sender_uid);
 					printf(" rssi=%d rx_rssi=%d\r\n", corrected_rssi, rxData->rx_rssi);
 
-					if(corrected_rssi > BOOP_RSSI && rxData->rx_rssi > BOOP_RSSI && peer_state->next_prox != BOOP) {
+					const Config_T *cfg = config_get();
+					int boop_thr = BOOP_RSSI + cfg->boop_rssi_adjust;
+					if(corrected_rssi > boop_thr && rxData->rx_rssi > boop_thr && peer_state->next_prox != BOOP) {
 						printf("Booping...\r\n");
-						peer_state->next_prox = BOOP; // set boop, we will send the boop packet next time.
-						// TODO Queue boop data packet if not already sent
+						peer_state->next_prox = BOOP;
+						// Push the state change to the peer now (don't wait for
+						// their next broadcast); BOOP can pre-empt a queued PROX.
+						peer_add_response(peer_state, SYNTHPASS_BOOP);
 					}
 
+					// Queue PROX.TXT back to this peer unless config opted out
+					// (DATA_TRIGGER_BOOP_ONLY skips the prox-time data send).
+					if(cfg->data_trigger == DATA_TRIGGER_PROX_AND_BOOP
+					   && !peer_state->our_prox_data_acked
+					   && msgstore_own(MSGSTORE_OWN_PROX).data_length >= 11) {
+						peer_add_response(peer_state, SYNTHPASS_PROX_DATA);
+					}
 				} else {
 					printf("(not for me) PROX\r\n");
 				}
@@ -306,9 +347,24 @@ static void incoming_frame_handler(SynthPass_PeerState_T *peers) {
 					printf_uid(frame->msg.hdr.sender_uid);
 					printf(" rssi=%d rx_rssi=%d\r\n", corrected_rssi, rxData->rx_rssi);
 
-					if(corrected_rssi < UNBOOP_RSSI && rxData->rx_rssi < UNBOOP_RSSI) {
+					// Receiving BOOP means the peer has already decided we're
+					// booped; mirror their state so a marginal local RSSI gate
+					// can't leave the two boards desynced. The mutual-RSSI gate
+					// still controls *un*-boop -- it takes precedence here so
+					// distance increases tear down both sides cleanly.
+					int unboop_thr = UNBOOP_RSSI + config_get()->boop_rssi_adjust;
+					if(corrected_rssi < unboop_thr && rxData->rx_rssi < unboop_thr) {
 						printf("Un-booping...\r\n");
-						peer_state->next_prox = UNBOOP; // unset boop, we will send the prox packet next time
+						peer_state->next_prox = UNBOOP;
+						peer_add_response(peer_state, SYNTHPASS_UNBOOP);
+					} else if(peer_state->next_prox != BOOP) {
+						printf("Booping (peer-driven)...\r\n");
+						peer_state->next_prox = BOOP;
+					}
+
+					// Queue BOOP.TXT (or PROX.TXT fallback) until acked.
+					if(!peer_state->our_boop_data_acked && msgstore_own_for_boop().data_length >= 11) {
+						peer_add_response(peer_state, SYNTHPASS_BOOP_DATA);
 					}
 				} else {
 					printf("(not for me) BOOP\r\n");
@@ -327,6 +383,63 @@ static void incoming_frame_handler(SynthPass_PeerState_T *peers) {
 					peer_state->next_prox = NOBOOP; // unset boop
 				} else {
 					printf("(not for me) UNBOOP\r\n");
+				}
+			}
+			break;
+		case SYNTHPASS_PROX_DATA:
+		case SYNTHPASS_BOOP_DATA:
+			{
+				// Peer is delivering their own message. The packed framing is
+				// [peer_uid u32][record_type u8][msgstore-style payload] -- mirrors
+				// the on-flash record view so the tail goes straight to append().
+				SynthPass_ProxData_T *rxData = (SynthPass_ProxData_T*) frame->msg.data;
+				int data_len = (int)frame->length - (int)SYNTHPASS_MAC_SIZE - (int)sizeof(SynthPass_Header_T);
+				int min_len = (int)sizeof(rxData->peer_uid) + 1; // +1 for record_type
+				if(data_len < min_len) {
+					printf("*_DATA: short frame (%d)\r\n", data_len);
+					break;
+				}
+				if(rxData->peer_uid != synthpass_uid) {
+					printf("(not for me) %s\r\n", type == SYNTHPASS_PROX_DATA ? "PROX_DATA" : "BOOP_DATA");
+					break;
+				}
+				PeerRecordType_T rec_type = (PeerRecordType_T) rxData->user_info[0];
+				const uint8_t *payload = &rxData->user_info[1];
+				uint16_t payload_len = (uint16_t)(data_len - min_len);
+
+				if(rec_type == RECORD_TYPE_TEXT || rec_type == RECORD_TYPE_FILE) {
+					if(!msgstore_received_has(peer_uid, rec_type, payload, payload_len)) {
+						printf("Storing new record from peer");
+						printf_uid(peer_uid);
+						printf(" (type=%d, len=%u)\r\n", rec_type, payload_len);
+						msgstore_received_append(peer_uid, rec_type, payload, payload_len);
+					} else {
+						printf("Duplicate *_DATA from peer");
+						printf_uid(peer_uid);
+						printf("\r\n");
+					}
+				} else {
+					printf("*_DATA: bad record_type %d\r\n", rec_type);
+				}
+
+				// Always ack so the peer stops resending.
+				SynthPass_MessageType_T ack = (type == SYNTHPASS_PROX_DATA) ?
+				                              SYNTHPASS_PROX_DATA_ACK : SYNTHPASS_BOOP_DATA_ACK;
+				peer_add_response(peer_state, ack);
+			}
+			break;
+		case SYNTHPASS_PROX_DATA_ACK:
+		case SYNTHPASS_BOOP_DATA_ACK:
+			{
+				SynthPass_ProxDataAck_T *rxAck = (SynthPass_ProxDataAck_T*) frame->msg.data;
+				if(rxAck->peer_uid == synthpass_uid) {
+					printf("%s from peer", type == SYNTHPASS_PROX_DATA_ACK ? "PROX_DATA_ACK" : "BOOP_DATA_ACK");
+					printf_uid(peer_uid);
+					printf("\r\n");
+					if (type == SYNTHPASS_PROX_DATA_ACK) peer_state->our_prox_data_acked = 1;
+					else                                  peer_state->our_boop_data_acked = 1;
+				} else {
+					printf("(not for me) DATA_ACK\r\n");
 				}
 			}
 			break;
@@ -392,15 +505,26 @@ void radio_task(SynthPass_PeerState_T *peers) {
 		// sync states
 		sync_peer_states(peers);
 
-		// calculate broadcast period
-		uint32_t broadcast_period_ticks = broadcast_random_ticks;
-		if(is_any_peer_booped(peers)) {
-			broadcast_period_ticks += SYNTHPASS_BOOP_PERIOD * DELAY_MS_TIME;
-		} else if(is_any_peer_active(peers)) {
-			broadcast_period_ticks += SYNTHPASS_PROX_PERIOD * DELAY_MS_TIME;
-		} else {
-			broadcast_period_ticks += SYNTHPASS_BROADCAST_PERIOD * DELAY_MS_TIME;
+		// Drive the indicator outputs from the config (LED behavior is a knob;
+		// QWIIC GPIO writes are gated on protocol_mode so a future I2C/serial
+		// mode can take over those pins).
+		int booped = is_any_peer_booped(peers);
+		int active = booped || is_any_peer_active(peers);
+		const Config_T *cfg = config_get();
+		int led_on = (cfg->led_behavior == LED_BEHAVIOR_BOOP) ? booped
+		           : (cfg->led_behavior == LED_BEHAVIOR_PROX) ? active
+		           : 0;
+		if(led_on) LED_ON(); else LED_OFF();
+#ifdef HAVE_QWIIC_GPIO
+		if(cfg->protocol_mode == PROTOCOL_GPIO) {
+			funDigitalWrite(QWIIC_PROX_PIN, active ? FUN_HIGH : FUN_LOW);
+			funDigitalWrite(QWIIC_BOOP_PIN, booped ? FUN_HIGH : FUN_LOW);
 		}
+#endif
+		uint32_t broadcast_period_ticks = broadcast_random_ticks;
+		if(booped)      broadcast_period_ticks += SYNTHPASS_BOOP_PERIOD      * DELAY_MS_TIME;
+		else if(active) broadcast_period_ticks += SYNTHPASS_PROX_PERIOD      * DELAY_MS_TIME;
+		else            broadcast_period_ticks += SYNTHPASS_BROADCAST_PERIOD * DELAY_MS_TIME;
 
 		// broadcast takes precedence
 		if((int32_t)(now - last_broadcast_tick) > broadcast_period_ticks) {

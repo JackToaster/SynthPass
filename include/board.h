@@ -41,6 +41,12 @@
     #define SYNTHPASS_REF_RSSI   -3
     #define SYNTHPASS_REF_RXRSSI -3
 
+    // QWIIC port outputs: PA2 (SDA) high while any peer is in proximity range,
+    // PA3 (SCL) high while any peer is booped. Push-pull, active high.
+    #define HAVE_QWIIC_GPIO
+    #define QWIIC_PROX_PIN PA2
+    #define QWIIC_BOOP_PIN PA3
+
 #elif defined(BOARD_AXION_QC_R1)
     // AxionQC's SynthPass hardware.
     #error "AxionQC hardware not implemented yet!"
