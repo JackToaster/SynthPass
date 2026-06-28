@@ -11,7 +11,7 @@
 
 #define DEFAULT_BOOP_RSSI_ADJUST 0
 #define DEFAULT_LED_BEHAVIOR     LED_BEHAVIOR_BOOP
-#define DEFAULT_DATA_TRIGGER     DATA_TRIGGER_PROX_AND_BOOP
+#define DEFAULT_DATA_TRIGGER     DATA_TRIGGER_BOOP_ONLY
 #define DEFAULT_PROTOCOL_MODE    PROTOCOL_GPIO
 
 static Config_T cached;
@@ -37,7 +37,7 @@ static uint16_t put_int(uint16_t pos, int v) {
 
 static void rerender(void) {
 	uint16_t p = 0;
-	p = put_str(p, "# SynthPass config -- host edits round-trip through typed values; comments are not preserved.\n");
+	p = put_str(p, "# SynthPass config - Save your modified settings and reboot the SynthPass for them to take effect. Comments are not preserved.\n");
 	p = put_str(p, "boop_rssi_adjust=");  p = put_int(p, cached.boop_rssi_adjust); p = put_str(p, "  # dB offset on the boop threshold; negative = easier boop\n");
 	p = put_str(p, "led_behavior=");      p = put_int(p, cached.led_behavior);     p = put_str(p, "     # 0=on while booped, 1=on while peer in range, 2=always off\n");
 	p = put_str(p, "data_trigger=");      p = put_int(p, cached.data_trigger);     p = put_str(p, "     # 0=send on prox and boop, 1=send on boop only\n");

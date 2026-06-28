@@ -418,6 +418,10 @@ static uint8_t  prox_content_buf[256];
 static uint8_t  boop_content_buf[256];
 static uint8_t  ini_content_buf[384];        // mirrors config.c's rendered_buf size
 static uint16_t ini_content_len;             // bytes of valid INI content captured
+// Root-dir capture: host deleting MESSAGES.HTM from the volume root marks
+// entry 0 with 0xE5; we treat that as "wipe received messages."
+static uint8_t  root_dir_buf[512];
+static volatile uint8_t root_have_update;
 // Atomic-save editors write the new file to a fresh cluster (just past our
 // reserved+FILE area) and then rewrite the dir entry to point there. Mirror
 // that cluster too so writes still get captured; the commit reads each file's
@@ -727,6 +731,13 @@ void HandleDataOut(struct _USBState *ctx, int endp, uint8_t *data, int len) {
 				uint16_t end = (uint16_t)(boff + n);
 				if (end > ini_content_len) ini_content_len = end;
 				ini_have_content = 1;
+			} else if (lba == START_ROOT) {
+				// Root dir first sector -- captures host deletion of MESSAGES.HTM.
+				for (uint32_t i = 0; i < n; i++) {
+					uint32_t off = boff + i;
+					if (off < 512) root_dir_buf[off] = data[i];
+				}
+				root_have_update = 1;
 			} else if (lba >= temp_first_lba && lba < temp_first_lba + 8) {
 				// Atomic-save temp file. Whichever ME/ entry ends up pointing at
 				// this cluster after the dir update gets these bytes (see usb_task).
@@ -741,7 +752,7 @@ void HandleDataOut(struct _USBState *ctx, int endp, uint8_t *data, int len) {
 
 			msc_bytes_remaining -= n;
 			if (msc_bytes_remaining == 0) {
-				if (me_have_subdir) me_commit_pending = 1;  // commit in usb_task (out of IRQ)
+				if (me_have_subdir || root_have_update) me_commit_pending = 1;  // commit in usb_task (out of IRQ)
 				msc_state = MSC_SEND_CSW;
 				while(USBFS_SendEndpointNEW(EP_MSC_IN, (uint8_t*)&csw, sizeof(csw), 1) == -1); // -1 == busy
 			}
@@ -819,59 +830,74 @@ void usb_task(void) {
 	// Persist a host change to ME/ (flash erase/write must run here, not the IRQ).
 	if (me_commit_pending) {
 		me_commit_pending = 0;
-		// Pick the right capture buffer for this file: if the dir entry's
-		// cluster matches the firmware's reserved cluster for this slot, use
-		// the dedicated buf; if it matches the atomic-save temp cluster, use
-		// the temp buf. Otherwise we missed the content (host wrote somewhere
-		// we don't watch) -- skip this commit.
-		uint16_t mdc = msc_md_clusters();
-		uint16_t reserved_prox = (uint16_t)(3 + mdc);
-		uint16_t reserved_boop = (uint16_t)(4 + mdc);
-		uint16_t reserved_ini  = (uint16_t)(5 + mdc);
-		struct slot { MsgstoreOwnKind kind; const char *prefix; uint8_t *cbuf; size_t cbuf_sz;
-		              uint8_t have_content; uint16_t reserved_cluster; };
-		struct slot slots[2] = {
-			{ MSGSTORE_OWN_PROX, "PROX", prox_content_buf, sizeof(prox_content_buf), prox_have_content, reserved_prox },
-			{ MSGSTORE_OWN_BOOP, "BOOP", boop_content_buf, sizeof(boop_content_buf), boop_have_content, reserved_boop },
-		};
-		for (int s = 0; s < 2; s++) {
-			uint8_t name83[11]; uint32_t fsize = 0; uint16_t cluster = 0;
-			if (me_parse_slot(me_subdir_buf, slots[s].prefix, name83, &fsize, &cluster)) {
-				PeerRecordType_T type = name83_is_txt(name83) ? RECORD_TYPE_TEXT : RECORD_TYPE_FILE;
-				const uint8_t *src = NULL; uint16_t src_sz = 0;
-				if (cluster == slots[s].reserved_cluster && slots[s].have_content) {
-					src = slots[s].cbuf;        src_sz = slots[s].cbuf_sz;
-				} else if (cluster == temp_cluster_num && temp_have_content) {
-					src = temp_content_buf;     src_sz = sizeof(temp_content_buf);
-				}
-				if (src) {
-					uint16_t l = (fsize > SYNTHPASS_MAX_MSG_SIZE) ? SYNTHPASS_MAX_MSG_SIZE : (uint16_t)fsize;
-					if (l > src_sz) l = src_sz;
-					msgstore_own_set(slots[s].kind, type, name83, src, l);
-				} else { // rename of an unchanged file: keep content, update name/type only
-					uint16_t clen = msgstore_own_content_len(slots[s].kind);
-					uint8_t tmp[256];
-					if (clen > sizeof(tmp)) clen = sizeof(tmp);
-					memcpy(tmp, msgstore_own_content(slots[s].kind), clen);
-					msgstore_own_set(slots[s].kind, type, name83, tmp, clen);
-				}
-			} else {
-				msgstore_own_clear(slots[s].kind);
-			}
+		// Host deleted MESSAGES.HTM from the volume root: the first byte of
+		// entry 0 in root_dir_buf flips to 0xE5. That's the trigger to wipe
+		// every received record. The synthesized listing will reappear on the
+		// next read (just the README), so the host sees the file return empty.
+		if (root_have_update && root_dir_buf[0] == 0xE5) {
+			msgstore_received_clear();
 		}
-		// SYNTHPAS.INI: same routing logic, pushed into config.c.
-		{
-			uint8_t name83[11]; uint32_t fsize = 0; uint16_t cluster = 0;
-			if (me_parse_slot(me_subdir_buf, "SYNT", name83, &fsize, &cluster)) {
-				const uint8_t *src = NULL; uint16_t src_sz = 0;
-				if (cluster == reserved_ini && ini_have_content) {
-					src = ini_content_buf;  src_sz = sizeof(ini_content_buf);
-				} else if (cluster == temp_cluster_num && temp_have_content) {
-					src = temp_content_buf; src_sz = sizeof(temp_content_buf);
+		root_have_update = 0;
+		// Only parse ME/ slots when the ME/ subdir was actually captured by
+		// HandleDataOut this commit cycle. Without this gate, a root-only write
+		// (e.g. deleting MESSAGES.HTM) would fall through to the slot loop with
+		// a stale/empty me_subdir_buf, me_parse_slot would find nothing, and
+		// the "no entry -> clear the slot" branch would wipe PROX.TXT and
+		// BOOP.TXT.
+		if (me_have_subdir) {
+			// Pick the right capture buffer for this file: if the dir entry's
+			// cluster matches the firmware's reserved cluster for this slot,
+			// use the dedicated buf; if it matches the atomic-save temp cluster,
+			// use the temp buf. Otherwise we missed the content -- skip.
+			uint16_t mdc = msc_md_clusters();
+			uint16_t reserved_prox = (uint16_t)(3 + mdc);
+			uint16_t reserved_boop = (uint16_t)(4 + mdc);
+			uint16_t reserved_ini  = (uint16_t)(5 + mdc);
+			struct slot { MsgstoreOwnKind kind; const char *prefix; uint8_t *cbuf; size_t cbuf_sz;
+			              uint8_t have_content; uint16_t reserved_cluster; };
+			struct slot slots[2] = {
+				{ MSGSTORE_OWN_PROX, "PROX", prox_content_buf, sizeof(prox_content_buf), prox_have_content, reserved_prox },
+				{ MSGSTORE_OWN_BOOP, "BOOP", boop_content_buf, sizeof(boop_content_buf), boop_have_content, reserved_boop },
+			};
+			for (int s = 0; s < 2; s++) {
+				uint8_t name83[11]; uint32_t fsize = 0; uint16_t cluster = 0;
+				if (me_parse_slot(me_subdir_buf, slots[s].prefix, name83, &fsize, &cluster)) {
+					PeerRecordType_T type = name83_is_txt(name83) ? RECORD_TYPE_TEXT : RECORD_TYPE_FILE;
+					const uint8_t *src = NULL; uint16_t src_sz = 0;
+					if (cluster == slots[s].reserved_cluster && slots[s].have_content) {
+						src = slots[s].cbuf;        src_sz = slots[s].cbuf_sz;
+					} else if (cluster == temp_cluster_num && temp_have_content) {
+						src = temp_content_buf;     src_sz = sizeof(temp_content_buf);
+					}
+					if (src) {
+						uint16_t l = (fsize > SYNTHPASS_MAX_MSG_SIZE) ? SYNTHPASS_MAX_MSG_SIZE : (uint16_t)fsize;
+						if (l > src_sz) l = src_sz;
+						msgstore_own_set(slots[s].kind, type, name83, src, l);
+					} else { // rename of an unchanged file: keep content, update name/type only
+						uint16_t clen = msgstore_own_content_len(slots[s].kind);
+						uint8_t tmp[256];
+						if (clen > sizeof(tmp)) clen = sizeof(tmp);
+						memcpy(tmp, msgstore_own_content(slots[s].kind), clen);
+						msgstore_own_set(slots[s].kind, type, name83, tmp, clen);
+					}
+				} else {
+					msgstore_own_clear(slots[s].kind);
 				}
-				if (src) {
-					uint16_t l = (fsize > src_sz) ? src_sz : (uint16_t)fsize;
-					config_apply_text(src, l);
+			}
+			// SYNTHPAS.INI: same routing logic, pushed into config.c.
+			{
+				uint8_t name83[11]; uint32_t fsize = 0; uint16_t cluster = 0;
+				if (me_parse_slot(me_subdir_buf, "SYNT", name83, &fsize, &cluster)) {
+					const uint8_t *src = NULL; uint16_t src_sz = 0;
+					if (cluster == reserved_ini && ini_have_content) {
+						src = ini_content_buf;  src_sz = sizeof(ini_content_buf);
+					} else if (cluster == temp_cluster_num && temp_have_content) {
+						src = temp_content_buf; src_sz = sizeof(temp_content_buf);
+					}
+					if (src) {
+						uint16_t l = (fsize > src_sz) ? src_sz : (uint16_t)fsize;
+						config_apply_text(src, l);
+					}
 				}
 			}
 		}

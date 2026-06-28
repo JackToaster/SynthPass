@@ -51,13 +51,14 @@ typedef struct __attribute__((__packed__)) {
 #define MAX_DATA  256u  // cap on a single record's whole payload (FILE = name83[11] + content)
 
 // Store-format version. Stored in the first message (README message). Incrementing invalidates the old store and triggers a flash erase.
-#define STORE_VERSION 13u
+#define STORE_VERSION 16u
 
 // Default content, written as the first received record on a fresh store.
 static const uint8_t README_TXT[] =
-	"SynthPass V0.13. "
-	"PROX.TXT goes out on detection, BOOP.TXT goes out on a boop. "
-	"Edit SYNTHPAS.INI to tweak tunable parameters.\n";
+	"[SynthPass V0.16] https://pretzel.engineer/synthpass\n"
+	"Write your outgoing messages in PROX.txt/BOOP.txt\n"
+	"Edit ME/SYNTHPAS.INI to tweak tunable parameters.\n"
+	"Delete this file to clear all received messages.\n";
 
 // Runtime state, (re)computed by msgstore_init().
 static uint32_t recv_count;       // number of received records in flash
@@ -178,24 +179,29 @@ void msgstore_init(void) {
 			flash_erase_sector(MSG_FLASH_ADDR + a);
 		}
 		flash_write_record(RECV_OFF, STORE_VERSION, RECORD_TYPE_TEXT, README_TXT, sizeof(README_TXT) - 1); // README -> received[0] (peer_id = version)
-		// Seed PROX.TXT and BOOP.TXT with placeholder greetings so users can see
-		// both slots from the host out of the box and edit either in place.
-		{
-			static const uint8_t prox_name[11] = {'P','R','O','X',' ',' ',' ',' ','T','X','T'};
-			static const char prox_default[] = "Edit PROX.TXT in the ME folder to set what other SynthPasses see when you walk by.\n";
-			uint8_t buf[11 + sizeof(prox_default) - 1];
-			memcpy(buf, prox_name, 11);
-			memcpy(buf + 11, prox_default, sizeof(prox_default) - 1);
-			flash_write_record(PROX_OWN_OFF, 0, RECORD_TYPE_TEXT, buf, sizeof(buf));
-		}
-		{
-			static const uint8_t boop_name[11] = {'B','O','O','P',' ',' ',' ',' ','T','X','T'};
-			static const char boop_default[] = "Edit BOOP.TXT in the ME folder to set what other SynthPasses see when you boop them.\n";
-			uint8_t buf[11 + sizeof(boop_default) - 1];
-			memcpy(buf, boop_name, 11);
-			memcpy(buf + 11, boop_default, sizeof(boop_default) - 1);
-			flash_write_record(BOOP_OWN_OFF, 0, RECORD_TYPE_TEXT, buf, sizeof(buf));
-		}
+	}
+
+	// Seed PROX.TXT and BOOP.TXT with placeholder greetings if their slots are
+	// missing on this boot -- on a fresh STORE_VERSION wipe (handled above) but
+	// also if anything else nuked one of the own sectors (a bug, a partial
+	// flash, etc.). Runs unconditionally so the defaults self-heal.
+	if (!msgstore_own_present(MSGSTORE_OWN_PROX)) {
+		static const uint8_t prox_name[11] = {'P','R','O','X',' ',' ',' ',' ','T','X','T'};
+		static const char prox_default[] = "Edit PROX.txt to change set what other SynthPasses see when you're nearby. Set data_trigger=0 in SYNTHPAS.INI to enable prox data.\n";
+		uint8_t buf[11 + sizeof(prox_default) - 1];
+		memcpy(buf, prox_name, 11);
+		memcpy(buf + 11, prox_default, sizeof(prox_default) - 1);
+		flash_erase_sector(MSG_FLASH_ADDR + PROX_OWN_OFF);
+		flash_write_record(PROX_OWN_OFF, 0, RECORD_TYPE_TEXT, buf, sizeof(buf));
+	}
+	if (!msgstore_own_present(MSGSTORE_OWN_BOOP)) {
+		static const uint8_t boop_name[11] = {'B','O','O','P',' ',' ',' ',' ','T','X','T'};
+		static const char boop_default[] = "Edit BOOP.TXT to change what other SynthPasses see when you boop them. You can include your name, telegram/discord handles, links to personal websites, or whatever else you can fit in this tiny text file.\n";
+		uint8_t buf[11 + sizeof(boop_default) - 1];
+		memcpy(buf, boop_name, 11);
+		memcpy(buf + 11, boop_default, sizeof(boop_default) - 1);
+		flash_erase_sector(MSG_FLASH_ADDR + BOOP_OWN_OFF);
+		flash_write_record(BOOP_OWN_OFF, 0, RECORD_TYPE_TEXT, buf, sizeof(buf));
 	}
 
 	// Populate the received-message state by walking the store with the iterator (stops at the first unwritten / non-valid slot).
@@ -265,6 +271,22 @@ void msgstore_own_clear(MsgstoreOwnKind kind) {
 SynthPassPeerRecord_T msgstore_own_for_boop(void) {
 	if (msgstore_own_present(MSGSTORE_OWN_BOOP)) return msgstore_own(MSGSTORE_OWN_BOOP);
 	return msgstore_own(MSGSTORE_OWN_PROX);
+}
+
+// Erase all received messages and re-seed the README at received[0]. Called
+// when the host deletes MESSAGES.HTM from the volume root.
+__HIGH_CODE
+void msgstore_received_clear(void) {
+	for (uint32_t a = 0; a < RECV_END; a += 0x1000u) {
+		flash_erase_sector(MSG_FLASH_ADDR + a);
+	}
+	flash_write_record(RECV_OFF, STORE_VERSION, RECORD_TYPE_TEXT, README_TXT, sizeof(README_TXT) - 1);
+	MsgStoreIter it; SynthPassPeerRecord_T r;
+	msgstore_iter_init(&it);
+	uint32_t count = 0;
+	while (msgstore_iter_next(&it, &r)) count++;
+	recv_count      = count;
+	recv_append_off = it.off;
 }
 
 // ---- config storage ----

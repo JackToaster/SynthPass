@@ -84,6 +84,9 @@ int msgstore_received_append(uint32_t peer_id, PeerRecordType_T type,
 // from the wire name) -- only the file content has to match.
 int msgstore_received_has(uint32_t peer_id, PeerRecordType_T type,
                           const uint8_t *data, uint16_t len);
+// Erase all received messages and re-seed the README. Triggered when the host
+// deletes MESSAGES.HTM from the volume root.
+void msgstore_received_clear(void);
 
 // --- config storage (one dedicated sector) ---
 // Read up to `size` bytes of the persisted config blob into `out`. Returns 1
