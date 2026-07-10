@@ -246,6 +246,14 @@ static void sync_peer_states(SynthPass_PeerState_T *peers) {
 }
 
 static void incoming_frame_handler(SynthPass_PeerState_T *peers) {
+	// Drop frames the hardware flagged as CRC-failed before trusting any of
+	// their bytes. iSLERCRCOK()==0 means a confirmed CRC failure; -1 means
+	// unimplemented on this target, in which case we fail open (unchanged
+	// behavior) rather than dropping every packet.
+	if(iSLERCRCOK() == 0) {
+		return;
+	}
+
 	// The chip stores the incoming frame in LLE_BUF, defined in extralibs/iSLER.h
 	volatile SynthPass_Frame_T *frame = (volatile SynthPass_Frame_T*)LLE_BUF;
 
