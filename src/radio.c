@@ -489,9 +489,13 @@ static uint32_t next_tx_window;
 void radio_init(void) {
 	// we can transmit right away
 	next_tx_window = funSysTick32();
-	
+
 	iSLERInit(LL_TX_POWER_0_DBM);
 	synthpass_init();
+}
+
+void radio_shutdown(void) {
+	iSLERStop();
 }
 
 

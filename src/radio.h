@@ -8,6 +8,9 @@
 // Initialize protocol state + the iSLER radio, and start broadcasting/listening.
 void radio_init(void);
 
+// Stop the iSLER radio. Call before jumping to the ROM bootloader.
+void radio_shutdown(void);
+
 // Service received frames and periodic broadcasting; call regularly from main.
 void radio_task(SynthPass_PeerState_T *peers);
 

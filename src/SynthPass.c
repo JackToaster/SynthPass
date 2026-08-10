@@ -11,7 +11,6 @@
 #include "ch32fun.h"
 #include "ch5xxhw.h"   // jump_isprom
 #include <stdio.h>     // putchar (defined in usb.c)
-#include "iSLER.h"     // for iSLERStop() before jump to bootloader
 
 #include "usb.h"
 #include "msgstore.h"
@@ -57,7 +56,7 @@ int main()
 		if(c >= 0) {
 			if(c == 'b') {
 				blink(5);
-				iSLERStop(); // seems to make bootloader jump more reliable
+				radio_shutdown(); // disarm the radio ISR to make the bootloader jump more reliable
 				usb_reset();
 				jump_isprom(); // enters the USB ISP bootloader; does not return
 			} else {
