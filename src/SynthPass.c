@@ -11,6 +11,7 @@
 #include "ch32fun.h"
 #include "ch5xxhw.h"   // jump_isprom
 #include <stdio.h>     // putchar (defined in usb.c)
+#include "iSLER.h"     // for iSLERStop() before jump to bootloader
 
 #include "usb.h"
 #include "msgstore.h"
