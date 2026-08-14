@@ -2,3 +2,12 @@ CompileFlags:
   Add: [--target=riscv64-unknown-elf]
   Remove: [-mabi=*, -G, -mno-save-restore, -march=*]
   BuiltinHeaders: QueryDriver
+---
+# test/ builds run under the "native" PlatformIO env (host gcc, not the
+# riscv cross toolchain), and pull in Unity from .pio/libdeps rather than
+# a location compile_commands.json ever records (pio test never emits one).
+If:
+  PathMatch: test/.*
+CompileFlags:
+  Remove: [--target=riscv64-unknown-elf]
+  Add: [-I.pio/libdeps/native/Unity/src, -Isrc]

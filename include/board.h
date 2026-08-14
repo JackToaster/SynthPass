@@ -50,6 +50,10 @@
 #elif defined(BOARD_AXION_QC_R1)
     // AxionQC's SynthPass hardware.
     #error "AxionQC hardware not implemented yet!"
+
+#elif defined(BOARD_NATIVE)
+    #define SYNTHPASS_REF_RSSI   0
+    #define SYNTHPASS_REF_RXRSSI 0
 #else
     #error "No BOARD_* macro defined; check platformio.ini env build_flags."
 #endif

@@ -61,21 +61,16 @@ uint8_t pack_header(PM_Header header);
 
 PM_Header unpack_header(uint8_t hdr);
 
-
-typedef struct {
-
-} PM_Path;
-
 typedef struct {
     PM_Header header;
     PM_PathLen path_len;
     uint16_t transport_codes[2];
-    PM_Path path;
+    uint8_t path[MAX_PATH_SIZE];
     PM_Payload payload;
     int8_t rssi;
 } PM_Packet;
 
-PM_Packet unpack_packet(uint8_t *packet, uint8_t len);
+void unpack_packet(uint8_t *packet, uint8_t len, PM_Packet *into);
 
 // returns: packed packet length
 uint8_t pack_packet(PM_Packet *packet, uint8_t *buf);
