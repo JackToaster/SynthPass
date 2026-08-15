@@ -2,6 +2,7 @@
 #include <stdint.h>
 
 
+
 // intentionally chosen to be compatible with MeshCore
 #define MAX_PAYLOAD_LEN 184 // biggest payload a packet can carry
 #define MAX_PATH_SIZE 64
