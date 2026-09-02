@@ -11,3 +11,11 @@ If:
 CompileFlags:
   Remove: [--target=riscv64-unknown-elf]
   Add: [-I.pio/libdeps/native/Unity/src, -Isrc]
+---
+# MCU-independent sources (native env's build_src_filter in platformio.ini)
+# also get compiled with plain host gcc, not the riscv cross toolchain --
+# same override as test/, minus the Unity include.
+If:
+  PathMatch: src/(identity|utils|packet)\.c
+CompileFlags:
+  Remove: [--target=riscv64-unknown-elf]
