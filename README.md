@@ -52,7 +52,6 @@ SynthPass uses PlatformIO to manage the firmware toolchain, and the ch32fun fram
 To compile the firmware, you'll need to:
 
 - Clone the SynthPass repo `git clone https://github.com/JackToaster/SynthPass.git`
-- Clone the ch33fun repo `git clone https://github.com/cnlohr/ch32fun.git`
 - Run `pio run -e [board hardware target]`. `[board hardware target]` should be replaced with one of the targets defined in `platformio.ini`:
   - `nanoch57x` for the nanoch57x dev board
   - `pretzelslab` for the SynthPass hardware in this repo & the SynthPasses handed out at Anthrocon 2026
