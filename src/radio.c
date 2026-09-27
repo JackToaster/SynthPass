@@ -14,7 +14,6 @@
 #include "board.h"
 #include "lib_rand.h"
 #include "msgstore.h"
-#include "config.h"
 
 __attribute__((aligned(4))) static SynthPass_Frame_T tx_frame = {};
 static uint32_t synthpass_uid;
@@ -323,8 +322,8 @@ static void incoming_frame_handler(SynthPass_PeerState_T *peers) {
 					printf_uid(frame->msg.hdr.sender_uid);
 					printf(" rssi=%d rx_rssi=%d\r\n", corrected_rssi, rxData->rx_rssi);
 
-					const Config_T *cfg = config_get();
-					int boop_thr = BOOP_RSSI + cfg->boop_rssi_adjust;
+					// TODO Config comes back
+					int boop_thr = BOOP_RSSI;// + cfg->boop_rssi_adjust;
 					if(corrected_rssi > boop_thr && rxData->rx_rssi > boop_thr && peer_state->next_prox != BOOP) {
 						printf("Booping...\r\n");
 						peer_state->next_prox = BOOP;
@@ -335,11 +334,11 @@ static void incoming_frame_handler(SynthPass_PeerState_T *peers) {
 
 					// Queue PROX.TXT back to this peer unless config opted out
 					// (DATA_TRIGGER_BOOP_ONLY skips the prox-time data send).
-					if(cfg->data_trigger == DATA_TRIGGER_PROX_AND_BOOP
-					   && !peer_state->our_prox_data_acked
-					   && msgstore_own(MSGSTORE_OWN_PROX).data_length >= 11) {
-						peer_add_response(peer_state, SYNTHPASS_PROX_DATA);
-					}
+					// if(cfg->data_trigger == DATA_TRIGGER_PROX_AND_BOOP
+					//    && !peer_state->our_prox_data_acked
+					//    && msgstore_own(MSGSTORE_OWN_PROX).data_length >= 11) {
+					// 	peer_add_response(peer_state, SYNTHPASS_PROX_DATA);
+					// }
 				} else {
 					printf("(not for me) PROX\r\n");
 				}
@@ -359,7 +358,9 @@ static void incoming_frame_handler(SynthPass_PeerState_T *peers) {
 					// can't leave the two boards desynced. The mutual-RSSI gate
 					// still controls *un*-boop -- it takes precedence here so
 					// distance increases tear down both sides cleanly.
-					int unboop_thr = UNBOOP_RSSI + config_get()->boop_rssi_adjust;
+
+					// TODO config comes back eventually
+					int unboop_thr = UNBOOP_RSSI; // + config_get()->boop_rssi_adjust;
 					if(corrected_rssi < unboop_thr && rxData->rx_rssi < unboop_thr) {
 						printf("Un-booping...\r\n");
 						peer_state->next_prox = UNBOOP;
@@ -521,16 +522,19 @@ void radio_task(SynthPass_PeerState_T *peers) {
 		// mode can take over those pins).
 		int booped = is_any_peer_booped(peers);
 		int active = booped || is_any_peer_active(peers);
-		const Config_T *cfg = config_get();
-		int led_on = (cfg->led_behavior == LED_BEHAVIOR_BOOP) ? booped
-		           : (cfg->led_behavior == LED_BEHAVIOR_PROX) ? active
-		           : 0;
+		// const Config_T *cfg = config_get();
+		// TODO LED config back
+		// int led_on = (cfg->led_behavior == LED_BEHAVIOR_BOOP) ? booped
+		//            : (cfg->led_behavior == LED_BEHAVIOR_PROX) ? active
+		//            : 0;
+		int led_on = booped;
+		
 		if(led_on) LED_ON(); else LED_OFF();
 #ifdef HAVE_QWIIC_GPIO
-		if(cfg->protocol_mode == PROTOCOL_GPIO) {
+		// if(cfg->protocol_mode == PROTOCOL_GPIO) { // TODO gpio mode config
 			funDigitalWrite(QWIIC_PROX_PIN, active ? FUN_HIGH : FUN_LOW);
 			funDigitalWrite(QWIIC_BOOP_PIN, booped ? FUN_HIGH : FUN_LOW);
-		}
+		// }
 #endif
 		uint32_t broadcast_period_ticks = broadcast_random_ticks;
 		if(booped)      broadcast_period_ticks += SYNTHPASS_BOOP_PERIOD      * DELAY_MS_TIME;

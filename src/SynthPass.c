@@ -11,11 +11,8 @@
 #include "ch32fun.h"
 #include "ch5xxhw.h"   // jump_isprom
 #include <stdio.h>     // putchar (defined in usb.c)
-
-#include "usb.h"
-#include "msgstore.h"
+#include "fsusb.h"
 #include "radio.h"
-#include "config.h"
 #include "synthpass.h"
 #include "board.h"
 
@@ -30,6 +27,19 @@ void blink(int n) {
 	}
 }
 
+
+// uint8_t cdc_input_buf[512]; // TODO what's an appropritate buffer size? Shoudl be big enough for any companion protocol command we support
+
+void handle_debug_input( int numbytes, uint8_t * data )
+{
+	if(data[0] == 'b') {
+		blink(5);
+		radio_shutdown();
+		jump_isprom();
+	}
+}
+
+
 int main()
 {
 	SystemInit();
@@ -43,28 +53,11 @@ int main()
 	funDigitalWrite( QWIIC_BOOP_PIN, FUN_LOW );
 #endif
 
-	msgstore_init(); // seed the message store into flash if needed
-	config_init();   // load host-editable config (or defaults) from its sector
-	usb_init();      // bring up CDC + MSC
 	radio_init();    // protocol state + iSLER radio; start broadcasting
 
 	blink(1);
 
 	while(1) {
-		// CDC debug input: 'b' jumps to ROM bootloader, anything else is echoed.
-		int c = usb_cdc_getc();
-		if(c >= 0) {
-			if(c == 'b') {
-				blink(5);
-				radio_shutdown(); // disarm the radio ISR to make the bootloader jump more reliable
-				usb_reset();
-				jump_isprom(); // enters the USB ISP bootloader; does not return
-			} else {
-				putchar(c);
-			}
-		}
-
-		usb_task();    		// handle MSC transfer. returns immediately if no usb transfer happening.
 		radio_task(peers);  // radio rx + periodic broadcast
 	}
 }
