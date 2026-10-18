@@ -1,0 +1,3155 @@
+AxionQcOP
+ —
+12/12/25, 12:05 PM
+Making a thread for it
+AxionQcOP
+ —
+12/12/25, 12:06 PM
+Ill see what’s cheaper but a simple microusb connector would work too
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 12:08 PM
+Forwarded
+Here's an idea I've had bouncing around my head for a while, I want someone to tell me why it won't work.
+What if we make a standard protogen boop module? It could be some very simple wireless module that can detect other nearby modules and transfer some pre-defined data format once it's within booping range of another protogen with the module (say, a few inches). The boop module would just plug into a UART on the protogen and have a super simple serial protocol that's easy to integrate with protogen firmware. Make example  code or even an Arduino library, prototracer integration, etc so it's as easy as possible to integrate.
+Now the main challenge would be making it widespread enough that you'll actually run into other proots with the boop module. This is where the magic of modern electronics manufacturing comes in, it can be easily made for <<$1, so my idea is to make dozens/hundreds of them and give them out for free to protogens and protogen makers, along with instructions on how to implement it.
+#🔌・electronics  •  12/12/25
+Forwarded
+My thought is probably 2.4GHz RF. Mostly not IR just so it doesn't have to be direct line of sight. My initial thought is to use a CH570 or CH572, they're tiny and only $0.1-0.2 in volume. Range detection by RSSI (signal strength) is probably good enough for very close range, especially with the right antenna orientations/polarization.
+#🔌・electronics  •  12/12/25
+Forwarded
+The basic idea is that both sides receive a boop signal simultaneously and can react to it. But I also want to add some extra data that you could use, like a color value so that you could have each toaster reacts to the other toasters color (if they have RGB) or maybe even an expression value so you could have an angry/happy/confused boop or something.
+#🔌・electronics  •  12/12/25
+^ for context :3
+AxionQcOP
+ —
+12/12/25, 12:11 PM
+Ch570q, micro USB, a JST SH 4 pin header, few caps and a 2450AT42E010B001E as the antenna
+Maybe an inductor to for a pi network
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 12:12 PM
+Probably also a 32MHz crystal
+Antenna could be a PCB antenna as well, that's a trade-off of board space vs cost
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 12:13 PM
+I don't think we have to worry about this, since it's operating at such short ranges so poor antenna matching won't be a big deal
+ [DGTC],
+AxionQcOP
+ —
+12/12/25, 12:20 PM
+I already have a network that works decently
+https://www.johansontechnology.com/docs/1080/2450AT42E010B_C3Pvfnl.pdf
+Antenna Datasheet
+Has to have ground pour underneath
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 3:43 PM
+Wonder if there's any more ideas on how the protocol should work. The wireless protocol can be as complicated as we want, and should be extendable while retaining backwards compatibility. But i2c and serial protocols should be stupid simple because everyone will have to implement it in their own software (unless they're using prototracer or something that could have built in support).
+Maybe it could even emulate the time of flight sensors everyone uses for boop sensors already? Not sure whether that's a good idea or not
+(mostly because it would be in addition to the normal boop sensor, not instead of)
+For outputs we could do something like proximity (there's another protogen within a few meters) and booped (a few inches) which could drive an LED or go to a GPIO on a microcontroller.
+For serial/i2c I think it would be fun to have a set list of boop actions that can be sent over too, like happy/angry/confused/rainbow/bluescreen, so that when you boop someone who has implemented that action their protogen will respond accordingly.
+Also it would be very fun to send an RGB value for the color of the protogen who booped you
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 3:52 PM
+It should also store a list of names/counts of protogens who booped you that can be downloaded later from the USB port
+yocto
+ —
+12/12/25, 3:53 PM
+protogen streetpass
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 3:53 PM
+Damnit now this idea is too cool not to do
+AxionQcOP
+ —
+12/12/25, 4:06 PM
+Finished it
+Will send pic later
+It’s 10x16mm
+Need to finish silkscreen
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 4:08 PM
+What
+That was fast
+Holy shit
+AxionQcOP
+ —
+12/12/25, 4:08 PM
+Did it during class
+Free period
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 4:08 PM
+Lmao
+AxionQcOP
+ —
+12/12/25, 4:09 PM
+Uses a JST SH clone for i2c and power, a small micro usb for programming, and the chip antenna, caps resistor and inductor are 0603 size
+I could sell it on my store for what 5-10$? Give a few away at a con or teo
+Two
+Shit my phones overheating
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 4:27 PM
+Nice
+I may still try to make an even-lower-cost version so I can give them away in large quantities
+ [DGTC],
+Fated2be
+ —
+12/12/25, 4:28 PM
+Adding onto this, what if it also stores a serial number/username for someone’s profile (like a cardd or linktree page), and then depending on how the data is pulled from the device, pull up a pool of the people you’ve interacted with?
+Basically what yocto said but more adaptable(?)
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 4:30 PM
+I think it will basically be a like a USB drive with a text file on it, a short description/links to some socials would definitely fit. I think there'll be about 100-200kB free to store that stuff on device so a few hundred bytes per person is probably the limit
+ [DGTC],
+AxionQcOP
+ —
+12/12/25, 4:33 PM
+Well it just depends on how much it costs to make, it’s still 2 dollars per board
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 4:34 PM
+Oh fair, $2 per board/sell for $5-10 checks out
+That's not too bad
+AxionQcOP
+ —
+12/12/25, 4:34 PM
+And after 50 boards given out it’s 100$ given out :emoji_37:
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 4:35 PM
+That's, like, a large con worth of protogens
+$100 isn't too bad for that
+AxionQcOP
+ —
+12/12/25, 4:36 PM
+Yeah
+But about that, how will they communicate
+It’s 2.54ghz
+Or whatever WiFi is
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 4:37 PM
+Though micro usb,,, ughhh
+Not a big fan tbh
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 4:37 PM
+2.4ghz, there's an open source protocol called ISLER I want to use
+Should allow direct peer-to-peer comms without needing to pair anything in advance
+ [DGTC],
+AxionQcOP
+ —
+12/12/25, 4:38 PM
+Ik but it’s smaller, and doesn’t need resistors
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 4:39 PM
+True
+AxionQcOP
+ —
+12/12/25, 4:39 PM
+And much cheaper
+Like 10x
+If I remember correctly
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 4:39 PM
+How much are micro B ports these days?
+AxionQcOP
+ —
+12/12/25, 4:40 PM
+2 cents on lcsc
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 4:40 PM
+Oh dang that's definitely cheaper than doing ENIG for the PCB type-C
+Ok fine I am willing to set aside my ire for micro usb in this one case...
+Might need to add a boot button too, I'm not sure yet but the dev boards have it
+ [DGTC],
+yocto
+ —
+12/12/25, 4:41 PM
+Can you link to info about it? I can't seem to find it anywhere
+AxionQcOP
+ —
+12/12/25, 4:41 PM
+https://www.lcsc.com/product-detail/C5446867.html
+LCSC Electronics
+GT-MC001E-SNNG3 | G-Switch | Price | In Stock | LCSC Electronics
+GT-MC001E-SNNG3 by G-Switch - In-stock components at LCSC. Price from $0.0132. Free access GT-MC001E-SNNG3 datasheet, Package, pinout diagrams, and BOM tools.
+Image
+This one I think
+ [DGTC],
+AxionQcOP
+ —
+12/12/25, 4:44 PM
+I also hate Micro USB, but sometimes it’s needed
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 4:47 PM
+Not much documentation written and it's still somewhat under development... But it's part of CH32fun, The open source tool chain for ch32 microcontrollers https://github.com/cnlohr/ch32fun/tree/master/examples_ch5xx/iSLER
+https://github.com/cnlohr/ch32fun/blob/master/extralibs/iSLER.h
+GitHub
+ch32fun/examples_ch5xx/iSLER at master · cnlohr/ch32fun
+Open source minimal stack for the ch32 line of WCH processors, including the ch32v003, a 10¢ 48 MHz RISC-V Microcontroller - as well as many other chips within the ch32v/x line. - cnlohr/ch32fun
+GitHub
+ch32fun/extralibs/iSLER.h at master · cnlohr/ch32fun
+Open source minimal stack for the ch32 line of WCH processors, including the ch32v003, a 10¢ 48 MHz RISC-V Microcontroller - as well as many other chips within the ch32v/x line. - cnlohr/ch32fun
+AxionQcOP
+ —
+12/12/25, 4:48 PM
+Uhh the chip I put on was a ch570
+Still works?
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 4:48 PM
+570/572 are identical afaik
+572 just is a bit more expensive because I think they pay some licensing to use BLE
+AxionQcOP
+ —
+12/12/25, 4:48 PM
+Oh didn’t notice the link change
+I saw Ch30 or something
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 4:50 PM
+Ah
+Wch is really bad about naming things lol
+Their 32 bit risc-v processors are ch32vxxx, except the ones that are ch32Xxxx or just chxxx
+AxionQcOP
+ —
+12/12/25, 4:51 PM
+The CH570 is also 32bit?
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 4:51 PM
+Yes
+AxionQcOP
+ —
+12/12/25, 4:52 PM
+They are pin for pin compatible right? The 570 and 572
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 4:53 PM
+I think so
+I would highly recommend playing with some dev boards before you order the custom ones, I am still not 100% sure all of this will work on the CH570
+AxionQcOP
+ —
+12/12/25, 4:53 PM
+Could swap it to get the bt
+Better not risk it tbh
+It’s a 10c difference
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 5:05 PM
+Fwiw it looks like jlc only stocks the 572 right now
+ [DGTC],
+AxionQcOP
+ —
+12/12/25, 5:09 PM
+I don’t use jlc for assembly, I do it at home
+Image
+@Pretzel 🥨
+Image
+AxionQcOP
+ —
+12/12/25, 5:39 PM
+forgot the crystal
+swapping the antenna for a 0805 chip
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 5:40 PM
+Looks nice otherwise. Probably violating some clearance rules for the antenna but those are just a suggestion
+ [DGTC],
+AxionQcOP
+ —
+12/12/25, 5:40 PM
+https://www.johansontechnology.com/docs/3794/Antenna-2450AT42E010B001E-Rev6.0.pdf
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 5:42 PM
+Looks like the recommendation is to have ground fill/vias all around on the top layer. But again, it would probably work anyway
+(actually you'll know better if you've used that antenna before)
+AxionQcOP
+ —
+12/12/25, 5:43 PM
+swapping it to this https://www.lcsc.com/product-detail/C2925419.html
+LCSC Electronics
+KH-2012-HM1 | kinghelm | Price | In Stock | LCSC Electronics
+KH-2012-HM1 by kinghelm - In-stock components at LCSC. Price from $0.0196. Free access KH-2012-HM1 datasheet, Package, pinout diagrams, and BOM tools.
+Image
+documentation is ass tho
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 5:44 PM
+Smol antenna
+Ehh just eyeball the layout and it'll probably be okay
+(this is not engineering advice)
+It only needs to do like 6" range lol
+AxionQcOP
+ —
+12/12/25, 5:48 PM
+gonna have to use the 0603 because the documentation is unreadable
+AxionQcOP
+ —
+12/12/25, 5:58 PM
+opinions on the RF setup?
+Image
+Image
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 6:01 PM
+I'd personally do 0402's for the RF section (0603's still have quite a lot of parasitic inductance at such a high frequency)
+Unless you're already accounting for that in your pi network design
+ [DGTC],
+AxionQcOP
+ —
+12/12/25, 6:02 PM
+tbh i dont even know the vaules for the stuff lmao
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 6:06 PM
+I think some of the packages of the ch570 have an ldo built in too so they can run on 5v, but not sure if they can also do 3v3 on the same pin or if the dropout voltage is too big. If it does work I'd hook the 3v3 pin on the JST up to 5v instead so it can work on either voltage.
+Compy! [FAST],
+ —
+12/12/25, 6:15 PM
+nora how the fuck did you do that in like an hour
+:3
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 6:23 PM
+I'm like 70% sure you could delete the whole matching network and just run a 50ohm stripline
+ [FAST],
+AxionQcOP
+ —
+12/12/25, 6:25 PM
+Yes :pot:
+ [DGTC],
+AxionQcOP
+ —
+12/12/25, 6:25 PM
+Prob
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 6:25 PM
+as someone who has designed PCBs in an hour... Make sure you take a break to drink some water and go to the bathroom some time lol
+ [DGTC],
+AxionQcOP
+ —
+12/12/25, 6:27 PM
+Well I’m abt to go watch fnaf 2 with friends so I had to stop :(
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 6:29 PM
+Oh one more thing I noticed, you definitely want some ground vias under the ch570. Otherwise the RF return path is really really bad.
+Compy! [FAST],
+ —
+12/12/25, 6:29 PM
+ohh yeah hyperfixating will do that
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 6:30 PM
+Like, "your ground wire on the JST connector is now radiating more than the real antenna" bad
+ [DGTC],
+AxionQcOP
+ —
+12/12/25, 6:43 PM
+Has to be 1.5mm can’t fit that with the pads in the way
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 6:59 PM
+Oh 2 layer board, hmm
+AxionQcOP
+ —
+12/12/25, 7:00 PM
+Yeah
+Cheaper
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 7:26 PM
+I mean it's such a short trace... I almost think it would be fine anyway
+AxionQcOP
+ —
+12/12/25, 8:11 PM
+I’ll figure it out
+I think I did anyways
+AxionQcOP
+ —
+12/12/25, 8:29 PM
+I’ve got a name idea instead of UBoop: ProotBoop or BoopProot
+I like ProotBoop better ngl
+Pretzel 🥨 [DGTC],
+ —
+12/12/25, 9:31 PM
+I'm not even remotely tied to the name U-Boop, it was just a pun off of U-Boot https://u-boot.org/
+U-Boot
+Teemikemedia
+Home
+But maybe it shouldn't be proot- specific? Obviously it could be used for synths as well, but with the streetpass type function I could see it being useful for all types of fursuiters if it gains traction
+Idk I'm probably overthinking this
+yocto
+ —
+12/12/25, 11:50 PM
+a little thing that could be a fursuit streetpass, with the ability to tie it into the functionality of a proto/tech suit (is there a better name for this lol) would be sick
+AxionQcOP
+ —
+12/13/25, 12:12 AM
+Protopass, synthpass, protolink?
+Pretzel 🥨 [DGTC],
+ —
+12/13/25, 12:28 AM
+Synthpass sounds cool as hell
+AxionQcOP
+ —
+12/13/25, 12:47 AM
+i love how goofy it looks lmao
+Image
+perhapsleiana
+ —
+12/13/25, 1:33 AM
+This is sounding more like an NFC text ID thing
+Like an NFC that just gives a few strings that are URLs, or a single URL
+AxionQcOP
+ —
+12/13/25, 1:34 AM
+what i want it to do is more like nintendo streetpass, but instead of logging it does an effect or somthing else
+perhapsleiana
+ —
+12/13/25, 1:35 AM
+And the UBoop module would be an NFC reader that responds to some existing NFC contact card system one way and to other UBoop modules another way
+It could have output pins for different types of NFC cards, like one pin for a contact card and another for a payment card, in addition to the pin for when there’s another uboop
+AxionQcOP
+ —
+12/13/25, 1:39 AM
+how does it look
+Image
+tried to use a calculator for the with but they all give different values
+AxionQcOP
+ —
+12/13/25, 1:57 AM
+btw @Pretzel 🥨 how does this thing get programmed, does it need npn transistors like a esp32
+Pretzel 🥨 [DGTC],
+ —
+12/13/25, 2:08 AM
+No clue
+I got as far as "it's cheap and looks like it would work", you're like 10 miles ahead of me by now
+AxionQcOP
+ —
+12/13/25, 2:09 AM
+ah
+btw it needs the crystal
+AxionQcOP
+ —
+12/13/25, 2:29 AM
+dk how to get it programmed tho
+Pretzel 🥨 [DGTC],
+ —
+12/13/25, 2:37 AM
+I think you need the boot button, you hold it while powering on.
+AxionQcOP
+ —
+12/13/25, 2:37 AM
+i think so too
+last issue is the crystal
+its a pain
+Pretzel 🥨 [DGTC],
+ —
+12/13/25, 2:37 AM
+Or you could do it through the debug interface, but that requires a debug probe (wch-linke)
+AxionQcOP
+ —
+12/13/25, 2:51 AM
+button
+Image
+AxionQc changed the post title: SynthPass
+ —
+12/13/25, 3:10 AM
+AxionQcOP
+ —
+12/13/25, 3:30 AM
+ah
+Image
+way cheaper to panel
+so its "Done" now still waiting for some line art
+Image
+Pretzel 🥨 [DGTC],
+ —
+12/13/25, 11:35 AM
+Dang I'd love to draw something up but I just packed up to move across the country and have no idea which box my drawing tablet is in
+I'm going to pick up several of these NanoCH57x dev boards to play with software once I'm moved in at my new place https://www.tindie.com/products/johnnywu/nanoch57x-development-board/
+Tindie
+nanoCH57x Development Board by MuseLab on Tindie
+nanoCH57x Development Board WCH CH572 CH570 RISC-V BLE RF 2.4GHz TYPE-C USB Open Source
+it looks like there's no software support for reading RSSI yet which will be a problem since that's how I planned to detect range
+@AxionQc this board just uses the wide stripline ^^
+AxionQcOP
+ —
+12/13/25, 3:45 PM
+Yeah I saw, used some of their documentation
+ [DGTC],
+AxionQcOP
+ —
+12/13/25, 4:58 PM
+I added a "Few"
+Image
+AxionQcOP
+ —
+12/13/25, 5:44 PM
+Should i keep em tight like this or switch them to 0402?
+Image
+Pretzel 🥨 [DGTC],
+ —
+12/13/25, 5:53 PM
+Looks very tight for hand assembly, but it's a trade-off between more space and more difficulty placing each individual part
+ [DGTC],
+Fated2be
+ —
+12/14/25, 5:22 PM
+Do you have documentation for this? Not finding it online atm
+omg nevermind :facepalm:
+i have the literacy of a child atm my apologies
+ [FAST],
+Pretzel 🥨 [DGTC],
+ —
+12/14/25, 5:50 PM
+What I've been thinking is to have them send an advertisement (broadcast every few seconds or so) with a uuid and (optionally) name, then a response with the uuid of the server/responder and RSSI. Once they get a response they would ping each other more frequently with RSSI to detect range, probably a few Hz. Once both sent & received RSSI are high enough one or the other would send the "boop" packet, with all the name/contact info/boop parameters. Then there'd be an "end boop" packet too when the RSSI goes low enough.
+I think it's important to control what's in the broadcast/boop packets so you can control whether your name/contact info is available for anyone you're near or just people you boop
+AxionQcOP
+ —
+12/14/25, 5:51 PM
+We need to figure out what will happen in the head itself too
+Is it just a boop?
+Or more
+Pretzel 🥨 [DGTC],
+ —
+12/14/25, 5:53 PM
+I think we just make a simple serial/i2c protocol that tells the head controller whether the boop is active and sends over whatever other data goes along with it
+Plus an option for "3.3v when boop, 0v when not" to make it as easy as possible if you don't want to do any extra stuff
+AxionQcOP
+ —
+12/14/25, 5:53 PM
+Ah so continuous boop when 2 are near each other?
+Pretzel 🥨 [DGTC],
+ —
+12/14/25, 5:54 PM
+Yes
+AxionQcOP
+ —
+12/14/25, 5:55 PM
+The SH connection that people use in it is bonded to 2 pins with pull-up resistors, so do whatever you need with that
+Pretzel 🥨 [DGTC],
+ —
+12/14/25, 5:55 PM
+That should be able to do i2c or UART or just 2 gpio
+AxionQcOP
+ —
+12/14/25, 5:55 PM
+Shouldn’t affect much
+For my wiimote with prototracer I just use uart
+Pretzel 🥨 [DGTC],
+ —
+12/14/25, 5:56 PM
+We'd have two gpio's for the gpio mode... What would the second do? Proximity maybe?
+ [DGTC],
+AxionQcOP
+ —
+12/14/25, 5:57 PM
+?
+I’m lost now :ohgodohplatypus:
+Pretzel 🥨 [DGTC],
+ —
+12/14/25, 5:58 PM
+In the mode that just does high for booped/low for not booped instead of serial/i2c
+AxionQcOP
+ —
+12/14/25, 5:58 PM
+Ah
+Pretzel 🥨 [DGTC],
+ —
+12/14/25, 5:58 PM
+I should make some diagrams of this lol, it's getting complicated now
+AxionQcOP
+ —
+12/14/25, 5:59 PM
+Mhm
+I was thinking this was more like Nintendo Streetpass lmao
+Pretzel 🥨 [DGTC],
+ —
+12/14/25, 6:00 PM
+Streetpass didn't have to integrate with every type of protogen known to mankind, so that adds an extra challenge...
+AxionQcOP
+ —
+12/14/25, 6:00 PM
+I had no idea how it would work with others so idk why I was thinking that
+Fated2be
+ —
+12/14/25, 6:01 PM
+Maybe just standardize the communication between individual devices, but everything else is up to the individual implementation?
+ [DGTC],
+Fated2be
+ —
+12/14/25, 6:02 PM
+Maybe also pass along a flag determining common types?
+Pretzel 🥨 [DGTC],
+ —
+12/14/25, 7:04 PM
+Image
+trying to make a little poster-thing that explains what we're trying to do
+probably should say something about how contact data is stored/downloadable over USB
+AxionQcOP
+ —
+12/14/25, 7:09 PM
+Image
+Better image
+The rotated header was just a test
+ [DGTC],
+Fated2be
+ —
+12/14/25, 7:14 PM
+obsidian detected :sunglasses:
+Pretzel 🥨 [DGTC],
+ —
+1/20/26, 6:57 PM
+64 bit unique id per chip
+Image
+yocto
+ —
+1/21/26, 12:01 AM
+should vendor lock in be a concern for this thing
+idr if this uses anything proprietary to the CH series
+Pretzel 🥨 [DGTC],
+ —
+1/21/26, 8:50 AM
+Unfortunately yes, the ISLER protocol currently only works on CH5xx chips.
+Theoretically it could work on other vendors' chips if anyone reverse engineered them hard enough, but idk if that will ever happen
+It'll be hard to beat the CH570 though because it's 10¢
+the_program
+ —
+1/21/26, 10:53 AM
+Technically it's hard to avoid vendor lock in anyway when working with embedded platforms. They all have something that makes them unique. (And don't forget that the PCB is also designed for the selected IC)
+yocto
+ —
+1/21/26, 12:17 PM
+That's not entirely true if you stick to widely used protocols. That's the thing with "soft"ware
+the_program
+ —
+1/21/26, 12:50 PM
+But if the pinout of the IC is different, you need to update the PCB anyway.
+But I agree, an (small) abstraction layer might certainly help
+yocto
+ —
+1/21/26, 1:16 PM
+Updating the PCB is easy. Depending on physical hardware in an IC is where you get into trouble if they decide to discontinue the part. Ideally the iSLER protocol (idk how it works) is built on top of 802.11/15 frames so any compliant radio can send them out. Even layer 2 is sketchy for cross platform compatability. I think the ESP32s need a workaround to send raw frames.
+I'm thinking way ahead though. Getting something that functions and figuring out the user experience is the important part right now
+Pretzel 🥨 [DGTC],
+ —
+1/21/26, 7:11 PM
+I believe the modulation/frame structure is all the same as BLE advertising frames, just with different data. So it should be possible on any BLE capable chip that can send out raw frames. Software support is definitely the limiting factor for that.
+I chose the CH570 primarily because it's so cheap, and I want to be able to give these things out like candy
+ [DGTC],
+AxionQcOP
+ —
+1/21/26, 7:20 PM
+yeah the entire board is pretty cheap, only "expensive" part is the antenna at 60c a pop
+theres the AANI-CH-0072 too which is the same exact thing at 50c
+Pretzel 🥨 [DGTC],
+ —
+1/21/26, 7:24 PM
+antenna 6x more expensive than the bluetooth SOC :thonk:
+AxionQcOP
+ —
+1/21/26, 7:24 PM
+the ch572 is like 36c tbh
+yocto
+ —
+1/21/26, 7:24 PM
+I mean connectors are often the more expensive part of a board
+AxionQcOP
+ —
+1/21/26, 7:24 PM
+*32
+ [DGTC],
+yocto
+ —
+1/21/26, 7:25 PM
+Entirely valid reason. It's also good to know that this thing has legs beyond a single Chinese micro though
+AxionQcOP
+ —
+1/21/26, 7:26 PM
+atleast we got 3k of them https://www.lcsc.com/product-detail/C46772607.html
+Pretzel 🥨 [DGTC],
+ —
+1/21/26, 7:26 PM
+I still I want to design a version that's got a pcb antenna for maximum cheap
+(I mean, other than my way-too-big NFC version)
+AxionQcOP
+ —
+1/21/26, 7:27 PM
+yeah, this is just a micro version for maximum space saving (idk why, i like small pcbs)
+Pretzel 🥨 [DGTC],
+ —
+1/21/26, 7:27 PM
+entirely reasonable when you're stuffing it up the nose of a protogen
+AxionQcOP
+ —
+1/21/26, 7:29 PM
+there can just be a version with a u.fl connector, though those cant be unplugged a lot
+looked up examples for trace antennas, the anntenna itself is almost the size of the pcb
+nvm it was just a IFA antenna specifically
+Pretzel 🥨 [DGTC],
+ —
+1/21/26, 7:32 PM
+looks like there's 2c type-c connectors on jlc's assembly part lib now
+AxionQcOP
+ —
+1/21/26, 7:33 PM
+?
+Pretzel 🥨 [DGTC],
+ —
+1/21/26, 7:33 PM
+https://jlcpcb.com/partdetail/LCKELEC-LCK_TCF302B_L65WLG1/C53184791
+LCK-TCF302B-L65WL-G1 | LCKELEC | USB Connectors | JLCPCB
+LCK-TCF302B-L65WL-G1 from LCKELEC - USB Connectors is available for JLCPCB assembly, check the stock, pricing and datasheet, and let JLCPCB helps you assemble the part LCK-TCF302B-L65WL-G1 for free.
+Image
+cheap and not micro-b
+https://www.lcsc.com/datasheet/C53184791.pdf
+Datasheet - LCSC Electronics
+Free download the datasheet for LCK-TCF302B-L65WL-G1 from LCKELEC.
+oh wait, it's power only smh
+AxionQcOP
+ —
+1/21/26, 7:34 PM
+also much bigger
+ [DGTC],
+yocto
+ —
+1/21/26, 7:35 PM
+companies will buy this and still not put the 5.1k resistors on the CC lines
+AxionQcOP
+ —
+1/21/26, 7:35 PM
+real
+the usb consumes, it years for more
+Image
+Pretzel 🥨 [DGTC],
+ —
+1/21/26, 7:38 PM
+usb micro b / usb macro c
+AxionQcOP
+ —
+1/21/26, 7:38 PM
+(The antenna is pointing the wrong way but it should still work tbh)
+@Pretzel 🥨 https://jlcpcb.com/partdetail/HH-HH_16P_TYPE_C_Y495/C52209111 .03c 16pin usbc
+HH 16P TYPE-C (Y495) | HH | USB Connectors | JLCPCB
+HH 16P TYPE-C (Y495) from HH - USB Connectors is available for JLCPCB assembly, check the stock, pricing and datasheet, and let JLCPCB helps you assemble the part HH 16P TYPE-C (Y495) for free.
+perhapsleiana
+ —
+1/22/26, 1:37 AM
+Maybe this for the NFC antenna and pcb trace antenna for main?
+Pretzel 🥨 [DGTC],
+ —
+1/26/26, 8:43 AM
+Got a spare hour or so to start work on the firmware. We're blinking LEDs on a CH572 now
+Pretzel 🥨 [DGTC],
+ —
+1/26/26, 8:57 AM
+sniffing for blue teeth
+Image
+this is just random bluetooth devices which happen to be speaking the same format as iSLER/SynthPass uses - BLE advertising frames on channel 37 in 1M PHY mode
+time to get two of them talking :3
+Compy! [FAST],
+ —
+1/27/26, 2:48 PM
+hey @Pretzel 🥨 does the ch572 support a quartz oscillator? I’m working on a school project that needs as little clock drift as possible
+ [FAST],
+AxionQcOP
+ —
+1/27/26, 2:50 PM
+I know it needs a crystal, thats abt it
+Compy! [FAST],
+ —
+1/27/26, 2:57 PM
+it does? where is it on your board?
+AxionQcOP
+ —
+1/27/26, 2:57 PM
+Image
+right next to the boot text
+Compy! [FAST],
+ —
+1/27/26, 2:57 PM
+yeah ok the nanoch57x has one too
+it looks like here that you can select between an internal source and an external source?
+Image
+ [FAST],
+Pretzel 🥨 [DGTC],
+ —
+1/27/26, 9:55 PM
+not only supports, but requires it, since it doesn't have a high speed internal oscillator.
+Technically doesn't need to be a quartz crystal, you can get MEMS oscillators that work with it too... but they're all just referred to as "crystals" these days
+AxionQcOP
+ —
+1/27/26, 10:01 PM
+also its a 32Mhz crystal right?
+Compy! [FAST],
+ —
+1/27/26, 10:01 PM
+Ok so the datasheet isn’t saying that it doesn’t require a quartz oscillator
+what is it saying then?
+AxionQcOP
+ —
+1/27/26, 10:02 PM
+you dont NEED it, but if you are using anything high speed like i2c or Wireless im pretty sure you need it
+Pretzel 🥨 [DGTC],
+ —
+1/29/26, 4:32 PM
+What should the BLE MAC address of synthpass devices be? 6 characters, ASCII, will show up encoded as hex on most protocol analyzers (e.g. "PR000T" will show up as "50:52:30:30:30:54")
+
+    :3:3:3 (3A:33:3A:33:3a:33)
+
+83%
+PR000T (50:52:30:30:30:54)
+17%
+Something else
+
+    0%
+
+Poll closed
+^^^ very important critical design decision here
+Pretzel 🥨 [DGTC],
+ —
+1/29/26, 5:39 PM
+I've got two ch570's communicating!
+RSSI ranging seems to work pretty reliably
+ [DGTC],
+AxionQcOP
+ —
+1/29/26, 5:50 PM
+That’s a hard one ngl
+perhapsleiana
+ —
+1/29/26, 6:22 PM
+It really is a hard one lmao
+Pretzel 🥨 [DGTC],
+ —
+1/29/26, 8:17 PM
+Very preliminary firmware for SynthPass, right now it just listens for and receives SynthPass frames. Next things to implement are boop detection and data transfer, then flash storage for the transferred data, and USB mass storage device mode for data upload/download.
+
+https://github.com/JackToaster/SynthPass
+GitHub
+GitHub - JackToaster/SynthPass: An open-source protocol & hardware ...
+An open-source protocol & hardware design for to detect nose boops & transfer simple data, designed for protogen/synth fursuits - JackToaster/SynthPass
+An open-source protocol & hardware design for to detect nose boops & transfer simple data, designed for protogen/synth fursuits - JackToaster/SynthPass
+yocto
+ —
+1/29/26, 8:28 PM
+going to boop a zip bomb
+Pretzel 🥨 [DGTC],
+ —
+1/29/26, 8:29 PM
+only supports text data. That being said, I don't know how to counter the "1000 tiny protogens in a trenchcoat" attack yet.
+i.e. you could make a device that continually pretends to be a new protogen and boops you, continually sending more and more data until the victim's memory is full
+you'd have to either be within booping distance or have a powerful transmitter/directional antenna to do that though so it's not a huge risk
+yocto
+ —
+1/29/26, 8:36 PM
+showing up to the convention with the suspiciously yagi antenna shaped backpack
+does rssi seem like a pretty decent proxy for distance in your tests so far?
+ [DGTC],
+AxionQcOP
+ —
+1/29/26, 9:00 PM
+can i send in a pull request to refactor it into PlatformIO? would make work much easier
+Pretzel 🥨 [DGTC],
+ —
+1/29/26, 9:20 PM
+Possibly, what needs to change to make it work with PIO?
+Pretzel 🥨 [DGTC],
+ —
+1/29/26, 9:22 PM
+seems pretty good for line of sight or through thin dielectrics (3d printed parts/protogen visors). Obstacles in the way do mess it up, but only by increasing the measured distance, which I think is OK
+ [DGTC],
+AxionQcOP
+ —
+1/29/26, 9:22 PM
+nothing, i already have it running
+Pretzel 🥨 [DGTC],
+ —
+1/29/26, 9:23 PM
+i don't get it, if nothing changes then why is a PR needed?
+AxionQcOP
+ —
+1/29/26, 9:24 PM
+well no code changes, only platform io files like its ini
+Image
+Pretzel 🥨 [DGTC],
+ —
+1/29/26, 9:27 PM
+hmm, so PIO takes over the build system? I still want to be able to just do make && make monitor to build/start up a serial terminal.
+(sorry if these are dumb questions I have literally never touched PIO before)
+Compy! [FAST],
+ —
+1/31/26, 12:04 PM
+realtek crab my beloved 🦀 🦀 <3
+Image
+Pretzel 🥨 [DGTC],
+ —
+1/31/26, 12:10 PM
+smh
+Image
+AxionQcOP
+ —
+2/1/26, 5:16 PM
+oh and btw @Pretzel 🥨  what do you mean by this
+Image
+Pretzel 🥨 [DGTC],
+ —
+2/1/26, 5:17 PM
+I want to make it so you can plug it in and it shows up as a flash drive with a text file of all the data you collected
+AxionQcOP
+ —
+2/1/26, 5:18 PM
+and the second one?
+ [DGTC],
+AxionQcOP
+ —
+2/1/26, 5:18 PM
+thing is, where are we gonna put the files into? there isnt much flash or ram to work with
+and its all fun and games until someone puts in a file that overflows the storage
+Pretzel 🥨 [DGTC],
+ —
+2/1/26, 5:19 PM
+200 bytes max per boop
+probably have to rate limit or something so you can't emulate 100 boops per second to overflow someone's storage
+and we'll probably have about 200kb of flash free so that's 1000 boops worth of data
+(plus you only get data transfers once from each unique device, so booping the same one multiple times still only gives you the single 200 byte message)
+flash endurance will become a concern once you boop approximately 100 million protogens
+Image
+AxionQcOP
+ —
+2/1/26, 5:25 PM
+damn
+ [DGTC],
+AxionQcOP
+ —
+2/1/26, 5:59 PM
+issue is how are we going to access it, will probably have to write an drive to read it, and the format?
+ah yes aliexpress, firmware complexity is definitely the lowest compared to an esp32
+Image
+AxionQcOP
+ —
+2/1/26, 6:10 PM
+uhh
+Pretzel 🥨 [DGTC],
+ —
+2/1/26, 6:10 PM
+actually tru if you use ch23fun
+AxionQcOP
+ —
+2/1/26, 6:11 PM
+is this real
+Image
+Pretzel 🥨 [DGTC],
+ —
+2/1/26, 6:11 PM
+ch570 has a usb peripheral, just need to use it in mass storage device mode
+AxionQcOP
+ —
+2/1/26, 6:11 PM
+i dont think we can really use this if the flash is really OTP
+ok nvm
+it was a 2019 version that got scrapped
+ [DGTC],
+AxionQcOP
+ —
+2/1/26, 6:14 PM
+we could use data flash maybe ?
+Image
+btw where did you get chip ID memory address from? i cant find it in the documentation
+Pretzel 🥨 [DGTC],
+ —
+2/1/26, 6:19 PM
+flash is not otp, can be erased + rewritten
+ [DGTC],
+AxionQcOP
+ —
+2/1/26, 6:20 PM
+yeah it was just from a scrapped mcu that was also called ch572
+Pretzel 🥨 [DGTC],
+ —
+2/1/26, 6:20 PM
+asked on the cnlohr server lol, someone dug it out of some example code
+AxionQcOP
+ —
+2/1/26, 6:20 PM
+and it actually works?
+damn
+ [DGTC],
+AxionQcOP
+ —
+2/1/26, 6:22 PM
+i will probably join the server soon if im gonna work more on this chip
+if i can even find it
+AxionQcOP
+ —
+2/1/26, 7:29 PM
+oh @Pretzel 🥨  are you using the Link-E or directly with usb
+to upload it
+Pretzel 🥨 [DGTC],
+ —
+2/1/26, 8:10 PM
+Using link-e for now since I can debug with that.
+And you need to change some settings registers to use the USB bootloader because the usb pins are the same as the pins you use for the link-e
+AxionQcOP
+ —
+2/1/26, 8:11 PM
+should i get one too or no, thinking about buying a nano ch572 to program with
+Pretzel 🥨 [DGTC],
+ —
+2/1/26, 8:12 PM
+if you want to work on the software, I'd get at least two of them
+Pretzel 🥨 [DGTC],
+ —
+2/1/26, 8:12 PM
+just sent you an invite to the server
+ [DGTC],
+AxionQcOP
+ —
+2/1/26, 8:13 PM
+got it, i also dm'ed him earlier but never got a response lol
+AxionQcOP
+ —
+2/1/26, 9:04 PM
+how long did it take you to get the dev boards?
+Pretzel 🥨 [DGTC],
+ —
+2/1/26, 9:31 PM
+about two weeks
+AxionQcOP
+ —
+2/1/26, 9:31 PM
+damn
+im gonna snatch these 3
+Image
+Pretzel 🥨 [DGTC],
+ —
+2/2/26, 9:59 AM
+Considering using a UF2 bootloader rather than the built-in USB bootloader, that would let you update firmware by dragging a .uf2 firmware file into the device rather than having to use minichlink
+That also means we wouldn't need the boot button anymore
+AxionQcOP
+ —
+2/4/26, 2:06 AM
+Not thick enough though
+I think
+perhapsleiana
+ —
+2/4/26, 2:07 AM
+leaves room for smd components. Just need a printed cap glued on
+AxionQcOP
+ —
+2/4/26, 2:08 AM
+Oh it has to be 2mm thick
+https://github.com/vasya-zh/PCB-Edge-USB-connector-KiCad-library
+GitHub
+GitHub - vasya-zh/PCB-Edge-USB-connector-KiCad-library: KiCad libra...
+KiCad library for a bunch of PCB USB connectors. Contribute to vasya-zh/PCB-Edge-USB-connector-KiCad-library development by creating an account on GitHub.
+KiCad library for a bunch of PCB USB connectors. Contribute to vasya-zh/PCB-Edge-USB-connector-KiCad-library development by creating an account on GitHub.
+perhapsleiana
+ —
+2/4/26, 2:11 AM
+USB pads and traces on the opposite side from all the components
+Use a relatively thin PCB
+AxionQcOP
+ —
+2/4/26, 2:12 AM
+Yikes, checked 2mm thick, makes it 37$
+perhapsleiana
+ —
+2/4/26, 2:12 AM
+Yeah and then all the smd components have to be outside the port
+AxionQcOP
+ —
+2/4/26, 2:14 AM
+Well they are already I think
+perhapsleiana
+ —
+2/4/26, 2:14 AM
+They don’t have to be :3
+AxionQcOP
+ —
+2/4/26, 2:14 AM
+I’ll test it out tmr
+perhapsleiana
+ —
+2/4/26, 2:15 AM
+Adafruit has some dev boards that are built like that
+I remember one of them barely even sticks out of the port, only exposes two pads
+Also I know plenty of wireless dongles built like that
+You could probably make the synthpass a wireless dongle
+AxionQcOP
+ —
+2/4/26, 2:22 AM
+Maybe
+AxionQcOP
+ —
+2/4/26, 10:57 AM
+Just realized another issue, the boards aren’t enig
+I could make it as a “6” layer pcb but have 2 actual layers
+Pretzel 🥨 [DGTC],
+ —
+2/4/26, 12:36 PM
+I think USB-C or micro-b is a better option anyway, much easier to plug into it when it's attached to a proot/synth head with common cables.
+AxionQcOP
+ —
+2/4/26, 12:38 PM
+Yeah
+ [DGTC],
+perhapsleiana
+ —
+2/4/26, 2:21 PM
+True
+ [DGTC],
+AxionQcOP
+ —
+2/4/26, 11:08 PM
+Did it work?
+Pretzel 🥨 [DGTC],
+ —
+2/5/26, 7:23 AM
+Not yet. Something wrong with how pio uploads it to the board, but I haven'tb tried anytime to solve it yet
+Pretzel 🥨 [DGTC],
+ —
+2/8/26, 10:54 AM
+PIO refactor is merged @AxionQc !!
+it only took me a week an a half
+I also added you as a collaborator, so you can work directly in my repo rather than a fork if you'd like. I'm still requiring PR's to merge to main though.
+AxionQcOP
+ —
+2/8/26, 1:17 PM
+Ah thx
+Pretzel 🥨 [DGTC],
+ —
+2/8/26, 1:21 PM
+Wrote up a little packet dissector, now Wireshark can decode SynthPass packets. Here's a capture from a broadcast/response.
+Image
+AxionQcOP
+ —
+2/8/26, 11:47 PM
+so what i may do is that there will be 2 env's one for the bootloader, another for synthpass itself
+so you can compile them separately and convert the synthpass code to uf2
+AxionQcOP
+ —
+2/9/26, 12:05 AM
+thats if i can even get it to work
+Pretzel 🥨 [DGTC],
+ —
+2/9/26, 12:06 AM
+Maybe we could build the bootloader into synthpass, since we need USB msc to download data anyway
+AxionQcOP
+ —
+2/9/26, 12:06 AM
+true
+but ill code the bootloader separately until i get it working (if i even do since i barely understand it lol)
+Pretzel 🥨 [DGTC],
+ —
+2/9/26, 12:08 AM
+A separate bootloader is definitely the more reliable/standard way to do it, anyway
+AxionQcOP
+ —
+2/9/26, 12:08 AM
+and if the code gets an update
+Pretzel 🥨 [DGTC],
+ —
+2/9/26, 12:10 AM
+With a separate bootloader we have to either be really confident in the bootloader never needing an update, or have the ability to update the bootloader (which is kinda a pain)
+Bootloader as part of the app means that bootloader updates are free, but then a broken update also breaks the bootloader
+AxionQcOP
+ —
+2/9/26, 12:11 AM
+true
+actually that will simplify code a LOT
+Pretzel 🥨 [DGTC],
+ —
+2/9/26, 12:14 AM
+I believe the bootloader code will need to run from RAM while updating which could complicate things because there's not much RAM to go around
+AxionQcOP
+ —
+2/9/26, 12:15 AM
+at this point if we arnt gonna use the bootloader to run synthpass separately, just have the usb func
+AxionQcOP
+ —
+2/12/26, 6:25 PM
+@Pretzel 🥨 i got an idea, have the jst sh pins to also be the rx and tx pins so we can program it with the WCHLink and dont have to suffer with the usb
+no need for a button either
+Pretzel 🥨 [DGTC],
+ —
+2/12/26, 6:35 PM
+Can't use the WCH-link when USB is enabled...
+:(
+(it uses the same pins as usb-D+/-)
+ [DGTC],
+AxionQcOP
+ —
+2/17/26, 8:19 PM
+i think it should work
+Image
+Pretzel 🥨 [DGTC],
+ —
+2/17/26, 8:20 PM
+gotta match the dimensions, that little curved trace is actually part of the antenna
+AxionQcOP
+ —
+2/17/26, 8:20 PM
+:emoji_37:
+Pretzel 🥨 [DGTC],
+ —
+2/17/26, 8:20 PM
+I'm not really sure but I think the little break in the feed might also be intentional
+(it's actually a capacitor at microwave frequencies :mindblown: )
+ [DGTC],
+AxionQcOP
+ —
+2/17/26, 8:22 PM
+wouldnt it be for the matching network?
+Pretzel 🥨 [DGTC],
+ —
+2/17/26, 8:22 PM
+doesn't look like there's any component meant to be there from the diagram so I think not?
+the datasheet is really not very clear about this which is kinda infuriating
+and there's no dimensions for it either, that would be very very critical for tuning the antenna
+AxionQcOP
+ —
+2/19/26, 6:22 PM
+New design, actual button, new antenna layout too
+Image
+AxionQcOP
+ —
+2/19/26, 6:40 PM
+for 20 of them
+Image
+can cut off 5-7$ but i need to change the usb C
+AxionQcOP
+ —
+2/19/26, 7:15 PM
+55$
+Image
+78 for 30 with shipping
+Pretzel 🥨 [DGTC],
+ —
+2/20/26, 9:00 AM
+Looks good
+How's the price look if you bump up the quantity? Like 100 or 200?
+AxionQcOP
+ —
+2/20/26, 9:10 AM
+Cant, could only put it up to 30 in the cart
+Economic limits to 50
+Pretzel 🥨 [DGTC],
+ —
+2/20/26, 9:35 AM
+Aww :(
+You planning to make your hw design open source or no?
+AxionQcOP
+ —
+2/20/26, 10:19 AM
+maybe, probably
+AxionQcOP
+ —
+2/20/26, 11:38 AM
+btw mass storage code is nearl done, need o add data funcs to make files and get info
+Pretzel 🥨 [DGTC],
+ —
+2/20/26, 6:57 PM
+Hell yeah
+Pretzel 🥨 [DGTC],
+ —
+2/20/26, 6:59 PM
+If you do you should grab an OSHW certification and stick the cute little gear on your design
+https://certification.oshwa.org/
+OSHWA Certification
+Certification provides an easy and straightforward way for producers to indicate that their products meet a well-defined standard for open-source compliance.
+OSHWA Certification
+AxionQcOP
+ —
+2/20/26, 7:01 PM
+the only issue i have with it is that 95% of the additions is by copilot, but it works, also an issue i found is that 1 txt file marks as 1kb in windows even though theres a lot less space taken
+and i found that if it somehow gets corrupted, like weird files and such, only easy way to fix is to format with disk genuis, windows cant do it for some reason
+ [DGTC],
+AxionQcOP
+ —
+2/20/26, 7:05 PM
+maybe, i also worry about chinese clones eventually
+Pretzel 🥨 [DGTC],
+ —
+2/20/26, 8:30 PM
+It is a pretty neat dev board outside of just being a protogen booping device
+ That'll be just about the cheapest+smallest USB 2.4ghz doodad around
+Though fyi I'll be designing my own version regardless and will probably make it OSHW
+AxionQcOP
+ —
+2/20/26, 11:26 PM
+trying to get nfc
+cant find a small enough chip
+https://jlcpcb.com/partdetail/STMicroelectronics-ST25TN01KAFH5/C3303589
+ST25TN01K-AFH5 | STMicroelectronics | RFID ICs | JLCPCB
+ST25TN01K-AFH5 from STMicroelectronics - RFID ICs is available for JLCPCB assembly, check the stock, pricing and datasheet, and let JLCPCB helps you assemble the part ST25TN01K-AFH5 for free.
+Image
+only 4 :kekw~2:
+would this even work
+Image
+AxionQcOP
+ —
+2/21/26, 11:47 PM
+usb serial working
+Image
+synthpass_init is breaking it though
+AxionQcOP
+ —
+2/21/26, 11:56 PM
+nvm it was me and a whole lotta stupid
+AxionQcOP
+ —
+2/22/26, 12:06 AM
+whoops, it broke it
+AxionQcOP
+ —
+2/22/26, 12:32 AM
+and it was claudes fault, who wouldve thought
+@Pretzel 🥨 want me to send it in?
+Pretzel 🥨 [DGTC],
+ —
+2/22/26, 12:40 AM
+Go for it, though I might not be able to check it out for a bit
+Pretzel 🥨 [DGTC],
+ —
+5/22/26, 9:35 AM
+I do want to pick this back up though... Maybe to try to get software up & a batch ready by AC
+I've been low on motivation the last month or so but I'm starting to get it back and knock out some projects on my backlog lately :)
+AxionQcOP
+ —
+5/26/26, 5:01 PM
+@Pretzel 🥨 good news, it seems you can request to skip baking with jlcpcb assembly, not sure if you can force it to be economic than standard though
+welp nvm
+AxionQcOP
+ —
+5/26/26, 5:20 PM
+89$ for 20 with assembly from jlc
+56 without the led
+or i can all make em locally
+Pretzel 🥨 [DGTC],
+ —
+5/26/26, 5:37 PM
+I wouldn't skip baking the LED, those tend to have bad reliability problems. That might be the only part bumping up up to standard assembly.
+yocto
+ —
+5/26/26, 5:39 PM
+I'm covering it with electrical tape
+Pretzel 🥨 [DGTC],
+ —
+5/27/26, 9:03 AM
+I did some coding last night, we have USB mass storage class now
+And I added a hook to the application so that it reboots to the USB bootloader on command, no more need to unplug/replug while holding the BOOT button down
+also whipped out a pcb antenna synthpass hardware design (forgive my broken 3d models!)
+Image
+perhapsleiana
+ —
+5/27/26, 2:28 PM
+that's so incredibly simple wtf lol
+i love how the crystal is physically larger than any other chip on the board
+Pretzel 🥨 [DGTC],
+ —
+5/27/26, 2:30 PM
+That's why Nanjing Qinheng Microelectronics Co Ltd deserves our undying respect and gratitude <3
+I could get a smaller crystal too, but it doesn't make this board any smaller
+ [DGTC],
+AxionQcOP
+ —
+5/27/26, 2:35 PM
+Did we not have that already?
+yocto
+ —
+5/27/26, 2:35 PM
+I love how integrated Chinese ICs are
+I made a USB microphone with like 3 passives, a mems mic, and 1 IC
+AxionQcOP
+ —
+5/27/26, 2:38 PM
+I had a bunch of code for actual working USB MSD stuff
+still works :)
+Image
+Persistance does work
+Image
+Pretzel 🥨 [DGTC],
+ —
+5/27/26, 2:46 PM
+Ah shit I'm reinventing the wheel again aren't i
+AxionQcOP
+ —
+5/27/26, 2:48 PM
+yerp
+i think my dumbass forgot to push the code in github
+AxionQcOP
+ —
+5/27/26, 3:00 PM
+how do i get this thing to get in bootloader mode again?
+Pretzel 🥨 [DGTC],
+ —
+5/27/26, 3:13 PM
+Hold the boot button while plugging it in
+AxionQcOP
+ —
+5/27/26, 3:18 PM
+yeah i got it but minichlink will only work in sudo
+AxionQcOP
+ —
+5/27/26, 3:50 PM
+bloody hell
+took a while but i got it to upload
+@Pretzel 🥨 do you want me to make a pr for the USB code?
+(i have no clue if the Synthpass code survived/workes though)
+its spamming beep! if that means anything
+AxionQcOP
+ —
+5/27/26, 4:15 PM
+oof yeah the code is still unstable
+ [DGTC],
+AxionQcOP
+ —
+5/27/26, 4:29 PM
+Nope mine is 100% not ready yet, corruption if you dont manually eject, freezing the entire system, code not even working sometimes
+AxionQcOP
+ —
+5/27/26, 4:59 PM
+damn i think i lost all of the code that worked for it
+Pretzel 🥨 [DGTC],
+ —
+5/27/26, 5:29 PM
+qwq
+AxionQcOP
+ —
+5/27/26, 5:29 PM
+there, found it
+absolute junk of code, but it should be fixable
+Attachment file type: archive
+New (2).zip
+3.23 MB
+it uses make
+it does show the correct amount of storage, and does have persistance
+ [DGTC],
+AxionQcOP
+ —
+5/27/26, 5:38 PM
+(Sorry for giving so many different things lmao)
+Pretzel 🥨 [DGTC],
+ —
+5/27/26, 5:43 PM
+I'll take a look once I'm home from work tonight
+I think I already re implemented most of this but there's probably some features I didn't get to yet
+AxionQcOP
+ —
+5/27/26, 5:43 PM
+yeah the zip above is purely just usb stuff
+Pretzel 🥨 [DGTC],
+ —
+5/27/26, 5:44 PM
+Did you do a composite device with simultaneous CDC/MSC?
+AxionQcOP
+ —
+5/27/26, 5:44 PM
+I dont remember at all, its been months that ive worked on it
+Pretzel 🥨 [DGTC],
+ —
+5/27/26, 5:45 PM
+I got that working on my end and it makes debugging way easier lol
+AxionQcOP
+ —
+5/27/26, 5:45 PM
+i can see its serial interface in device manager
+Pretzel 🥨 [DGTC],
+ —
+5/27/26, 5:46 PM
+Cool, quite possible I've done nothing new at all then :3
+AxionQcOP
+ —
+5/27/26, 5:47 PM
+though im pretty sure this has the minor issue of corrupting itself to hell and needing a powershell line and diskgenuis to fix it
+but idk what causes it
+and its rare
+AxionQcOP
+ —
+5/27/26, 5:59 PM
+lol
+Image
+:emoji_37:
+Image
+so those issues was just bc of too many files in the root folder
+AxionQcOP
+ —
+5/27/26, 6:07 PM
+then it wouldnt appear after testing a few times what would happen if i filled the storage
+reflash fixed it
+ws2812 leds do work
+so using those as a status led could work
+Pretzel 🥨 [DGTC],
+ —
+5/27/26, 6:36 PM
+How much storage did you get? I managed to get 192kb to work and could probably do a bit more, since the firmware is only a few kb now.
+AxionQcOP
+ —
+5/27/26, 6:37 PM
+8kb I think
+Pretzel 🥨 [DGTC],
+ —
+5/27/26, 6:37 PM
+Aha I did do something new then :3
+yocto
+ —
+5/27/26, 6:38 PM
+what if the project was called synthwave
+AxionQcOP
+ —
+5/27/26, 6:38 PM
+i think its bc i use the ram as temp storage instead of moving to flash immediately
+i genuinely dont remember what i did
+Pretzel 🥨 [DGTC],
+ —
+5/27/26, 6:39 PM
+The Great Merge ™ will reconcile all tonight
+AxionQcOP
+ —
+5/27/26, 6:39 PM
+Im using Fat12
+Pretzel 🥨 [DGTC],
+ —
+5/27/26, 6:40 PM
+Same
+AxionQcOP
+ —
+5/27/26, 6:40 PM
+yep
+
+/* Build the default FAT12 disk image in RAM (boot sector, two FATs,
+ * root directory with a README.TXT entry, and the file data). */
+
+
+Pretzel 🥨 [DGTC],
+ —
+5/27/26, 6:40 PM
+unfortunately fat12 means only 8+3 character file names :birbpensive:
+AxionQcOP
+ —
+5/27/26, 6:41 PM
+do you have file persistance working?
+Pretzel 🥨 [DGTC],
+ —
+5/27/26, 6:41 PM
+Yes
+AxionQcOP
+ —
+5/27/26, 6:41 PM
+hmm i think your stuff will probably be more stable then
+AxionQcOP
+ —
+5/27/26, 6:45 PM
+yeah i only have storage implemented
+and with the way im doing right now with the ramdisk im stuck at 6kb
+Pretzel 🥨 [DGTC],
+ —
+5/27/26, 6:47 PM
+What I want to try is making it render a text file on the fly rather than having it stored in flash, that way you can just store the messages + metadata and expand it to a human readable format when you actually read the file over USB
+Should be able to serve up files bigger than the entire chip's flash as long as the raw (maybe even compressed??) message data fits into flash.
+AxionQcOP
+ —
+5/27/26, 6:49 PM
+how did you get persistence to work anyways?
+Pretzel 🥨 [DGTC],
+ —
+5/27/26, 6:52 PM
+Data stored in flash rather than RAM, then the firmware reads the flash on startup to get pointers to data that it needs
+AxionQcOP
+ —
+5/27/26, 6:54 PM
+Hmm, i tried doing that before  but it never worked, and how does it save on power off? does it save on every write to disk?
+Pretzel 🥨 [DGTC],
+ —
+5/27/26, 6:54 PM
+Yes
+Actually has to erase/rewrite in 4kb chunks for every modification because that's the minimum size you can erase in the flash
+AxionQcOP
+ —
+5/27/26, 6:55 PM
+i think that was my issue ngl
+atleast one of them
+Pretzel 🥨 [DGTC],
+ —
+5/27/26, 6:56 PM
+It caught me up for an hour or so because the code that writes/erases flash cannot itself live in flash, you have to do a HIGH_CODE annotation (I think) so that it puts the code in RAM instead
+AxionQcOP
+ —
+5/27/26, 6:57 PM
+well thats smart
+im pretty much done with the pcb, ive used all the pins and it cant get any smaller
+and the led is the perfect size where you can replace it with a normal led
+the pcb is 20x10mm
+AxionQcOP
+ —
+5/27/26, 7:16 PM
+so i added up all the prices for the components (not counting the caps and resistors) it comes to 1$ of components
+i just need to find a way to make em fast at home
+AxionQcOP
+ —
+5/27/26, 7:25 PM
+Wow that’s small  (red rectangle is a SynthPass)
+Image
+Pretzel 🥨 [DGTC],
+ —
+5/27/26, 7:46 PM
+:birbsmol:
+mines's a bit bigger, 16x20mm
+AxionQcOP
+ —
+5/27/26, 7:47 PM
+probably due to the antenna?
+Pretzel 🥨 [DGTC],
+ —
+5/27/26, 7:47 PM
+yep
+almost 1/3 antenna
+Image
+AxionQcOP
+ —
+5/27/26, 7:50 PM
+hmm i think i did my schematic wrong :kekw~2:
+Pretzel 🥨 [DGTC],
+ —
+5/27/26, 10:58 PM
+it works! Managed to fill the flash up entirely without any issue after a few bug fixes.
+Image
+I also made it support arbitrary file types for the boop data (yes you can boop someone a gif... as long as it fits in 250 byte :p)
+AxionQcOP
+ —
+5/27/26, 11:00 PM
+:D
+Pretzel 🥨 [DGTC],
+ —
+5/27/26, 11:00 PM
+also it spits out the messages as a .md file now, with the non-text files embedded with image tags
+probably need to figure out what text encoding to use, right now it's just ASCII but you gotta be able to do emojis in the messages right???
+AxionQcOP
+ —
+5/27/26, 11:02 PM
+Probably
+Pretzel 🥨 [DGTC],
+ —
+5/28/26, 7:52 AM
+Hey @AxionQc what pin mapping did you use for the LED and I2C pins? Want to make sure I'm doing the same ones for my hardware design
+Pretzel 🥨 [DGTC],
+ —
+5/28/26, 8:39 AM
+Some ideas for future features I want to get to eventually:
+
+    Longer messages, right now you get 241 bytes to play with which is... not a lot. A few kb would be nice so you could send small images/gifs/audio as well.
+
+Bigger storage (adding an external flash chip), the ~200kb gets you about ~800 messages at 241 bytes each but longer messages make that shrink very quicklybattery powered synthpassmake one with color printed silkscreen depicting wireframe landscapes, call it the "synthwave"
+(thanks @yocto for that last idea lol)
+ [DGTC],
+AxionQcOP
+ —
+5/28/26, 3:16 PM
+PA2 SDA
+PA3 SCL
+PA7 LED
+ [DGTC],
+AxionQcOP
+ —
+5/28/26, 3:22 PM
+Why battery powered? Isn’t the point of it being connected to a fursuit?
+Does the CH572 family even have the capability of being connected to bigger flash
+Color Silkscreens are expensive and you have to use EasyEDA
+Also isn’t one of the main things about this is to be cheap?
+perhapsleiana
+ —
+5/28/26, 3:42 PM
+For fursuits that don’t have other power
+AxionQcOP
+ —
+5/28/26, 3:42 PM
+True, forgot abt that
+I can probably make a carrier board with a bms rq
+Pretzel 🥨 [DGTC],
+ —
+5/28/26, 4:19 PM
+Tbh that one is (mostly) a joke
+ [DGTC],
+AxionQcOP
+ —
+5/28/26, 4:19 PM
+Ah ok
+Pretzel 🥨 [DGTC],
+ —
+5/28/26, 4:20 PM
+You can get SPI or I2C flash chips, I don't think the ch572 natively supports it (no memory mapping) but it can be made to work
+Bigger flash can probably be a later revision thing, even if we make it 4kb per boop (16x bigger) that's still 50 max sized boops to fill up the memory
+Pretzel 🥨 [DGTC],
+ —
+5/28/26, 4:31 PM
+A USB power bank would also work to power it
+Instead of an onboard battery/bms I mean
+ [DGTC],
+AxionQcOP
+ —
+5/28/26, 4:56 PM
+Yeah
+ [DGTC],
+AxionQcOP
+ —
+5/28/26, 4:57 PM
+Unless the bigger chips have a second i2c controller we would have to use SPI
+there’s some that are 2-4Mb that are USON 2x3mm
+Pretzel 🥨 [DGTC],
+ —
+5/28/26, 5:13 PM
+I think I'm going to skip it for the first version of my board
+Bitbanging SPI for this feels like a bit of a stretch, the firmware is already getting complicated lol
+AxionQcOP
+ —
+5/28/26, 5:29 PM
+Shouldnt we just have 1 dedicated pcb? i feel it would confuse others if there are multiple versions
+I can make mine open source too
+Pretzel 🥨 [DGTC],
+ —
+5/28/26, 11:09 PM
+Performed the first successful boop tonight! No data transfer yet but it went through the whole proximity ranging process and detected a boop based on RSSI
+Pretzel 🥨 [DGTC],
+ —
+5/31/26, 6:16 AM
+IDK if this matters so much if they all run pretty much the same firmware and function the same. I want to keep the option of using a nanoch57x instead of the custom boards since that makes it a lot easier to DIY, so there'll be at least two hardware variants out there anyway.
+ [DGTC],
+AxionQcOP
+ —
+5/31/26, 7:01 PM
+Im fine with keeping the nanoch57x as an option
+also I will probably buy the prototype SynthPass boards tonight
+AxionQcOP
+ —
+5/31/26, 8:24 PM
+@Pretzel 🥨 do you think this ldo is small enough lolhttps://www.ti.com/lit/ds/symlink/tlv742p.pdf?ts=1780240610862
+only 17c too
+14 on lcsc
+Pretzel 🥨 [DGTC],
+ —
+5/31/26, 8:52 PM
+I've used that one before it's really nice
+With the weird little diagonal center pad 5 pin qfn thingy
+ [DGTC],
+AxionQcOP
+ —
+5/31/26, 9:02 PM
+ngl should i risk it with the cheaper option of using the ch572 internal ldo and see if it will inject 5v into the teensy, or go the more expensive route first with the seperate ldo
+Pretzel 🥨 [DGTC],
+ —
+5/31/26, 9:06 PM
+That's the biggest unknown for me rn, not sure whether it's worth an external ldo or just saying it's 3.3v only and use the internal ldo for usb power
+AxionQcOP
+ —
+5/31/26, 9:06 PM
+fitting it aint an issue for me at least
+Image
+Pretzel 🥨 [DGTC],
+ —
+5/31/26, 9:11 PM
+So smol...
+you're allowed to leave the center pad off if it breaks the clearance rules btw
+ [DGTC],
+AxionQcOP
+ —
+5/31/26, 9:14 PM
+Oh that’s not bad, but it’s fine to keep it there
+Jay [ﬂuﬀy],
+ —
+5/31/26, 10:54 PM
+so if I'm reading right this is effectively streetpass for protogens? is it supposed to work at shorter ranges? roughly the same? different actions at different ranges?
+I saw different ideas while reading through the thread but idk how many of them ended up being dropped lol. I'm assuming the implementation slide is accurate to current intent
+idk a thing about PCB design but I'm really curious what software implementation is going to look like. if I can get my hands on one of these once the hardware/firmware is finished (enough), I will implement it, and I'm scared of what I might put myself through if there isn't a C++ library for it by then
+AxionQcOP
+ —
+6/3/26, 11:54 AM
+Wow that already finished production and are shipped out
+Pretzel 🥨 [DGTC],
+ —
+6/3/26, 1:22 PM
+Dang that's fast
+ [ﬂuﬀy],
+Pretzel 🥨 [DGTC],
+ —
+6/3/26, 1:25 PM
+Effectively yes. It's supposed to work at relatively shorter ranges (think Bluetooth headphones range). The slide is still accurate to the intent, though there's still firmware work to do to achieve that.
+If you want to get in on it sooner, you could pick up a nanoch57x board! Our custom hardware is really just a smaller/cheaper version of that board.
+ [DGTC],
+Serin - (UTC-5)
+ —
+6/3/26, 1:29 PM
+I know I'd love to get in on one of these!
+as someone whos only taken a very fast read through things, is it possible to use this (with an obvious modification) with an external antenna?
+Pretzel 🥨 [DGTC],
+ —
+6/3/26, 2:42 PM
+Worth mentioning that we use signal strength to detect boops, so your boop distance will be wrong depending on the antenna
+This isn't really documented anywhere outside the firmware, but anything other than a nanoch57x will need a calibration programmed in so that it matches the nanoch57x's ranging
+AxionQcOP
+ —
+6/3/26, 2:50 PM
+SynthPass wouldn’t need calibration after
+Jay [ﬂuﬀy],
+ —
+6/3/26, 6:08 PM
+will the firmware you currently have posted to github run on the nanoch57x as-is? and does that board normally have the JST-SH connector on that (can I plug it into a stemma port on my control board and just start interfacing with it)
+ [ﬂuﬀy],
+Serin - (UTC-5)
+ —
+6/3/26, 6:08 PM
+https://share.google/SHBfv5dFX0df91qfo
+Tindie
+nanoCH57x Development Board by MuseLab on Tindie
+nanoCH57x Development Board WCH CH572 CH570 RISC-V BLE RF 2.4GHz TYPE-C USB Open Source
+nanoCH57x Development Board by MuseLab on Tindie
+Jay [ﬂuﬀy],
+ —
+6/3/26, 6:10 PM
+oh risc-v. interesting
+Jay [ﬂuﬀy],
+ —
+6/3/26, 6:31 PM
+I mean, no JST-SH, but it's not like I don't have the equipment for a little soldering. I can just tack on some header pins and stick it on a breadboard with my remote board
+ [ﬂuﬀy],
+Pretzel 🥨 [DGTC],
+ —
+6/3/26, 8:51 PM
+Firmware still isn't ready at all, but it does (and will always) run on the nanoCH57x. It works with the USB bootloader too so you don't need to buy the wchlink-e programmer with it.
+Jay [ﬂuﬀy],
+ —
+6/3/26, 8:51 PM
+should I buy one of those programmers if I am buying two of these boards for testing
+Pretzel 🥨 [DGTC],
+ —
+6/3/26, 8:53 PM
+I haven't managed to brick it bad enough to need the programmer yet, and the debug interface doesn't work with USB enabled anyway so it's not much use. I'd skip it unless you're planning to experiment with stuff other than SynthPass.
+(we do debugging by printing over usb serial instead)
+Jay [ﬂuﬀy],
+ —
+6/3/26, 8:58 PM
+can I flash them with Arduino IDE
+Pretzel 🥨 [DGTC],
+ —
+6/3/26, 9:01 PM
+Not for the synthpass firmware, you'll need to use PIO
+I think there is an arduino core for CH57x but I've never tried it
+Jay [ﬂuﬀy],
+ —
+6/3/26, 9:06 PM
+wait so how exactly are you going from the code I can see on github, to a board running it?
+are you just compiling it for risc-v with gcc and then bit-banging it over PIO?
+Pretzel 🥨 [DGTC],
+ —
+6/3/26, 9:12 PM
+OH PIO as in "platformIO"
+not like the pi pico thingy
+Jay [ﬂuﬀy],
+ —
+6/3/26, 9:14 PM
+okay that's considerably less concerning to me than using the software the creator of the board was suggesting lol
+good localization is nice to have
+ [DGTC],
+AxionQcOP
+ —
+6/4/26, 1:56 AM
+I don’t think there is any
+ [ﬂuﬀy],
+AxionQcOP
+ —
+6/4/26, 1:57 AM
+The only one with a JST SH is the SynthPass board itself, which is not being sold right now
+Jay [ﬂuﬀy],
+ —
+6/16/26, 1:45 PM
+Image
+Pretzel 🥨 [DGTC],
+ —
+6/16/26, 6:30 PM
+Forwarded
+SynthPass panels arrived :birbexcite:
+Image
+Image
+Image
+#🔌・electronics  •  6/16/26
+ [DGTC],
+AxionQcOP
+ —
+6/16/26, 7:11 PM
+Yeah same here
+Tying to fix the code for the led
+I’m using v6 of ws2812 that needs a longer reset period but idk how to fix it
+Jay [ﬂuﬀy],
+ —
+6/16/26, 7:30 PM
+literally just installed PlatformIO and it's already completely broken. I'm about to give NixOS another shot, this is stupid
+I know it's not the ch32v library itself that is broken because I'm getting errors when I try to install/update it too
+AxionQcOP
+ —
+6/16/26, 7:31 PM
+I never got this shit to work on Linux tbh
+Everything works except for uploading
+Jay [ﬂuﬀy],
+ —
+6/16/26, 7:32 PM
+I'm on Windows
+AxionQcOP
+ —
+6/16/26, 7:33 PM
+Oh
+Jay [ﬂuﬀy],
+ —
+6/16/26, 7:33 PM
+because I've been too lazy + busy to install CachyOS
+Image
+Jay [ﬂuﬀy],
+ —
+6/16/26, 7:40 PM
+does this mean anything useful to you
+already tried updating stuff
+it also doesn't load... a number of UI elements in PlatformIO, with the same error...?
+Pretzel 🥨 [DGTC],
+ —
+6/16/26, 7:44 PM
+Not sure tbh. I've been using the CLI version on Linux
+Jay [ﬂuﬀy],
+ —
+6/16/26, 7:44 PM
+this might be my sign to finally stop being lazy and install CachyOS
+yeah the entire PlatformIO extension is just completely cooked on my machine, reinstalling it doesn't help
+Jay [ﬂuﬀy],
+ —
+6/16/26, 7:52 PM
+I guess I know what I'm doing next weekend
+Pretzel 🥨 [DGTC],
+ —
+6/16/26, 11:38 PM
+@Serin - (UTC-5) / @AxionQc would love to discuss how we can make synthpass play nicely with prototracer. It should be able to act as an i2c device just like the ToF boop sensors, so probably similar to that. Seems like you both know much more about the prototracer side than I do.
+If there's anything on the SynthPass firmware side I could do to make it easier I want to know.
+AxionQcOP
+ —
+6/16/26, 11:39 PM
+btw do you have any ws2812-v6 on you?
+im trying to get mine to work but im stuggling
+ [DGTC],
+Serin - (UTC-5)
+ —
+6/16/26, 11:39 PM
+I've dabbled in it to allow protohud to override parts of it
+But I can look into adding it as a sensor
+ [DGTC],
+AxionQcOP
+ —
+6/16/26, 11:40 PM
+should be pretty simple, just need to get the i2c stuff set up, can probably copy over some of the boop sensor stuf
+AxionQcOP
+ —
+6/16/26, 11:50 PM
+274$ for 200 boards assembled by jlc
+im scared for how much the tarrifs would be
+fuck no
+Image
+Serin - (UTC-5)
+ —
+6/16/26, 11:52 PM
+That checks out
+Pretzel 🥨 [DGTC],
+ —
+6/16/26, 11:52 PM
+:OOF~1:
+AxionQcOP
+ —
+6/16/26, 11:52 PM
+uhh my ass will find a way
+to not pay
+Pretzel 🥨 [DGTC],
+ —
+6/16/26, 11:52 PM
+can you get standard assembly if you do <50?
+Pretzel 🥨 [DGTC],
+ —
+6/17/26, 12:00 AM
+hmm. not obvious from the code
+Pretzel 🥨 [DGTC],
+ —
+6/17/26, 12:01 AM
+libusb_open()=-3 means permission error. You'll need to set up udev rules so that you can access the usb device.
+AxionQcOP
+ —
+6/17/26, 12:02 AM
+i did do udev
+but sudo fixed it idfk anymore
+Pretzel 🥨 [DGTC],
+ —
+6/17/26, 12:03 AM
+yeah sounds like the udev rules didn't take. Can you post your /etc/udev/rules.d/99-minichlink.rules?
+AxionQcOP
+ —
+6/17/26, 12:03 AM
+gang
+:1kyardstare:
+lemme wait a min
+big udev u saw
+Pretzel 🥨 [DGTC],
+ —
+6/17/26, 12:04 AM
+briefly saw it and it looks correct
+AxionQcOP
+ —
+6/17/26, 12:04 AM
+Image
+could be bc im in arch
+btw
+Pretzel 🥨 [DGTC],
+ —
+6/17/26, 12:04 AM
+what does groups $USER return?
+AxionQcOP
+ —
+6/17/26, 12:04 AM
+/s
+❯ groups $USER
+axionqc : axionqc wheel input kvm libvirt openrazer plugdev dialout
+Pretzel 🥨 [DGTC],
+ —
+6/17/26, 12:04 AM
+huh
+AxionQcOP
+ —
+6/17/26, 12:05 AM
+anyways ws2812 still doenst work
+Pretzel 🥨 [DGTC],
+ —
+6/17/26, 12:05 AM
+maybe try sudo udevadm control --reload-rules && sudo udevadm trigger
+(or just reboot)
+AxionQcOP
+ —
+6/17/26, 12:06 AM
+i rebooted before
+many times
+Pretzel 🥨 [DGTC],
+ —
+6/17/26, 12:06 AM
+that's very odd then
+not sure what's going on with that
+AxionQcOP
+ —
+6/17/26, 12:06 AM
+Treset = 68us is wrong 100%
+for v6 it should be >280us
+oh other important file
+https://github.com/cnlohr/ch32fun/blob/master/extralibs/ws2812b_dma_spi_led_driver.h
+GitHub
+ch32fun/extralibs/ws2812b_dma_spi_led_driver.h at master · cnlohr/...
+Open source minimal stack for the ch32 and ch5xx WCH RISC-V Microcontrollers - cnlohr/ch32fun
+Open source minimal stack for the ch32 and ch5xx WCH RISC-V Microcontrollers - cnlohr/ch32fun
+ive got no clue if the synthpass is working tbh
+Pretzel 🥨 [DGTC],
+ —
+6/17/26, 12:10 AM
+my hardware is being a bit stubborn also, the usb bootloader works but the application doesn't run (usb device just disappears after flashing)
+going to try to fix that tomorrow bc it's my bed time now
+really hope I didn't mess up the hardware design
+AxionQcOP
+ —
+6/17/26, 12:14 AM
+ono
+lost a crystal
+and i dont got extras
+Pretzel 🥨 [DGTC],
+ —
+6/17/26, 12:15 AM
+:nooooooo:
+AxionQcOP
+ —
+6/17/26, 12:15 AM
+welp im ripping one out of another board thats busted
+nvm i found it after ripping out and loosing the other one lmaoo
+AxionQcOP
+ —
+6/17/26, 1:22 AM
+good and bad news
+good news is its not a code issue, works with another v6 led
+bad news is that its probably a hardware issue
+MyloWhylo
+ —
+6/17/26, 10:13 AM
+Pretzel can I claim a synthpass at AC 🥺
+AxionQcOP
+ —
+6/17/26, 2:05 PM
+nevermind it was a software issue
+thank goodness
+Serin - (UTC-5)
+ —
+6/17/26, 2:05 PM
+🤣
+AxionQcOP
+ —
+6/17/26, 2:08 PM
+but yeah @Pretzel 🥨 an issue ive seen is that the synthpass code only runs like 10-20% of the time, gotta unplug and replug multiple times to get it to work
+AxionQcOP
+ —
+6/17/26, 3:28 PM
+ok got some code working for the ws2812b
+AxionQcOP
+ —
+6/17/26, 3:49 PM
+now i need to figure out how to make it sync with synthpass
+Pretzel 🥨 [DGTC],
+ —
+6/17/26, 4:02 PM
+If course, I'm going to bring at least a hundred lol
+Pretzel 🥨 [DGTC],
+ —
+6/17/26, 4:03 PM
+Hmm this light be similar to what I was seeing. I got it to flash successfully but the code wouldn't actually run.
+AxionQcOP
+ —
+6/17/26, 4:03 PM
+oh and i cant get the "program without button" to work
+CURRENT: upload_protocol = custom
+Uploading .pio/build/genericCH572Q/firmware.elf
+[sudo] password for axionqc:
+Error: Could not initialize isp programmer
+WARNING: You are not in the plugdev/dialout group, the canned udev rules will not work on your system.
+*** [upload] Error 224
+==================================
+MyloWhylo
+ —
+6/17/26, 4:12 PM
+that's an issue with linux permissions, you need to add yourself to plugdev/dialout
+AxionQcOP
+ —
+6/17/26, 4:12 PM
+i did
+thats why im using sudo
+because arch is weird and doesnt want to work
+Pretzel 🥨 [DGTC],
+ —
+6/17/26, 10:20 PM
+oh fuk
+Image
+Image
+AxionQcOP
+ —
+6/17/26, 10:26 PM
+Did you forgot the extra passives
+Like you need 3-4 caps in total I think
+AxionQcOP
+ —
+6/17/26, 10:37 PM
+On a scale of 1-10 how screwed are you
+Pretzel 🥨 [DGTC],
+ —
+6/17/26, 11:29 PM
+Specifically the 1.5k resistor
+And I think my board somehow only works well enough to flash without it
+AxionQcOP
+ —
+6/17/26, 11:30 PM
+oh so no power?
+so what happens since theres no resistor ?
+Pretzel 🥨 [DGTC],
+ —
+6/17/26, 11:31 PM
+Not sure. It enumerates as a USB device when in bootloader mode, and I can flash it with firmware successfully, but it never seems to actually run the application
+AxionQcOP
+ —
+6/17/26, 11:31 PM
+i think thats just the code being crappy?
+Pretzel 🥨 [DGTC],
+ —
+6/17/26, 11:32 PM
+Even a simply blinky program
+AxionQcOP
+ —
+6/17/26, 11:32 PM
+it does the same to me
+ohh
+yeah
+do minichlink -P
+then resend the code
+had the same issue lmao
+Pretzel 🥨 [DGTC],
+ —
+6/17/26, 11:33 PM
+Wait maybe I am just dumb lmao
+AxionQcOP
+ —
+6/17/26, 11:33 PM
+theres a factory setting that makes it unusable idk why
+Pretzel 🥨 [DGTC],
+ —
+6/17/26, 11:34 PM
+oh shit
+i even remember having to do that to the nanoch57x lmao
+it work now
+AxionQcOP
+ —
+6/17/26, 11:34 PM
+:D
+but yeah idk why for me but it takes so many restarts to get the usb to appear
+its been plugged in for the past few hours and
+Image
+Pretzel 🥨 [DGTC],
+ —
+6/17/26, 11:35 PM
+huh. Mine seems to work right away
+AxionQcOP
+ —
+6/17/26, 11:35 PM
+actually idk if its due to the ws2812
+or i may have forgotten to send the synthpass code idk
+im not gonna send it in yet but here is the changes for now
+
+#include "ch32fun.h"
+#include "color_utilities.h"
+#include "ws2812b_pwm.h"
+
+
+#define WS2812B_CLOCK_HZ (800 * 1000)
+
+ws2812b_pwm.c
+2 KB
+
+#ifndef WS2812B_H
+#define WS2812B_H
+
+#include <stdint.h>
+
+void WS2812B_Init(void);
+
+ws2812b_pwm.h
+1 KB
+
+/*
+ * SynthPass -- firmware entry point.
+ *
+ * A protogen/synth nose-boop gadget on the WCH CH572. Subsystems:
+ *   - radio.c    : 2.4GHz iSLER radio + SynthPass protocol (peer detect, PROX)
+ *   - usb.c      : composite USB -- CDC debug serial + read-only MSC mass storage
+
+SynthPass.c
+3 KB
+i need to fix the comments and actually implement synthpass
+nvm its my usb hub being ass
+synthpass works
+Pretzel 🥨 [DGTC],
+ —
+6/17/26, 11:39 PM
+yippee!
+AxionQcOP
+ —
+6/17/26, 11:39 PM
+also
+Image
+Pretzel 🥨 [DGTC],
+ —
+6/17/26, 11:39 PM
+oh yeah that's straight up an empty file lmao
+AxionQcOP
+ —
+6/17/26, 11:39 PM
+lol
+Pretzel 🥨 [DGTC],
+ —
+6/17/26, 11:39 PM
+just for testing the file extension
+AxionQcOP
+ —
+6/17/26, 11:39 PM
+how do you think i should do it?
+for implementing the ws2812 to interface with the radio stuff
+Pretzel 🥨 [DGTC],
+ —
+6/17/26, 11:41 PM
+not sure tbh, I haven't thought about what the status LED should do. Probably nothing by default
+or maybe just light up when booped
+AxionQcOP
+ —
+6/17/26, 11:42 PM
+i was thinking maybe solid purple by default, blink at every transmission it sends, and pulse another color when it boops with someone
+do you think it would be worth it to get jlc to program all the boards?
+Fee standard: $7.86 engineering fee + $7.86 per hour of labor.
+Pretzel 🥨 [DGTC],
+ —
+6/17/26, 11:45 PM
+They'll do it for very cheap, but probably not worth bc we'll have firmware updates by the time it's delivered anyway
+AxionQcOP
+ —
+6/19/26, 5:30 PM
+though i dont got a vna so i dont know how to fix
+Pretzel 🥨 [DGTC],
+ —
+6/19/26, 5:30 PM
+start soldering an increasingly longer wire to one end or the other of the antenna till it gets better?
+not really sure
+I havent' worked with chip antennas before so idk the right way to tune them
+AxionQcOP
+ —
+6/19/26, 5:31 PM
+i may just slap in the same antenna i use for all my other boards
+2450AT42E010B001E this one
+or AANI-CH-0072-T
+wait @Pretzel 🥨 would maybe increasing the rx power help?
+
+#define LL_TX_POWER_MINUS_25_DBM    0x01
+#define LL_TX_POWER_MINUS_20_DBM    0x02
+#define LL_TX_POWER_MINUS_15_DBM    0x03
+#define LL_TX_POWER_MINUS_10_DBM    0x05
+#define LL_TX_POWER_MINUS_8_DBM     0x07
+#define LL_TX_POWER_MINUS_5_DBM     0x0A
+#define LL_TX_POWER_MINUS_3_DBM     0x0C
+#define LL_TX_POWER_MINUS_1_DBM     0x10
+#define LL_TX_POWER_0_DBM           0x12
+#define LL_TX_POWER_1_DBM           0x15
+#define LL_TX_POWER_2_DBM           0x18
+#define LL_TX_POWER_3_DBM           0x1B
+#define LL_TX_POWER_4_DBM           0x1F
+#define LL_TX_POWER_5_DBM           0x25
+#define LL_TX_POWER_6_DBM           0x2D
+#define LL_TX_POWER_7_DBM           0x3B
+
+AxionQcOP
+ —
+6/19/26, 5:39 PM
+now around -10 right next to eachother and -50 around a foot away
+Pretzel 🥨 [DGTC],
+ —
+6/19/26, 5:43 PM
+Certainly could, I forget what it's set to now
+AxionQcOP
+ —
+6/19/26, 5:43 PM
+0
+AxionQcOP
+ —
+6/19/26, 5:44 PM
+this is at 7 dbm power
+now 70dm when they are a foot away wtf
+AxionQcOP
+ —
+6/19/26, 6:03 PM
+adding a end cap didnt help
+i only had 1.2pf though
+Image
+@Pretzel 🥨 how did you calibrate yours?
+Pretzel 🥨 [DGTC],
+ —
+6/19/26, 6:12 PM
+Pretty much just guessed lol
+I'm going to figure out a more formal calibration procedure eventually
+AxionQcOP
+ —
+6/19/26, 6:16 PM
+is my board to far gone?
+Pretzel 🥨 [DGTC],
+ —
+6/19/26, 6:16 PM
+Not if it's working now? Are you getting better data after tuning up the tx power?
+AxionQcOP
+ —
+6/19/26, 6:17 PM
+
+Peer timed out: :2c:56:5e:ae
+New peer! :3c:56:5e:ae
+BROADCAST rssi=-78
+Peer timed out: :3c:56:5e:ae
+New peer! :3c:56:5e:ae
+BROADCAST rssi=-80
+Peer timed out: :3c:56:5e:ae
+
+not really
+thats with one of them underneath my desk lol tho
+
+BROADCAST rssi=-60
+BROADCAST rssi=-60
+PROX peer uid:3c:56:5e:ae rssi=-60 rx_rssi=-62
+BROADCAST rssi=-60
+PROX peer uid:3c:56:5e:ae rssi=-60 rx_rssi=-62
+BROADCAST rssi=-60
+PROX peer uid:3c:56:5e:ae rssi=-60 rx_rssi=-61
+BROADCAST rssi=-60
+BROADCAST rssi=-60
+BROADCAST rssi=-60
+PROX peer uid:3c:56:5e:ae rssi=-60 rx_rssi=-62
+BROADCAST rssi=-60
+BROADCAST rssi=-60
+BROADCAST rssi=-60
+BROADCAST rssi=-60
+PROX peer uid:3c:56:5e:ae rssi=-60 rx_rssi=-62
+PROX peer uid:3c:56:5e:ae rssi=-60 rx_
+
+ oh wait
+thats new
+Pretzel 🥨 [DGTC],
+ —
+6/19/26, 7:05 PM
+Hey! They responded!
+AxionQcOP
+ —
+6/19/26, 8:38 PM
+so @Pretzel 🥨 after testing a little bit it stops working, no more serial messages after a bit, had someone hold the other one around 1-2m away
+
+New peer! :3c:56:5e:ae
+BROADCAST rssi=-84
+BROADCAST rssi=-75
+New peer! :2c:56:5e:ae
+BROADCAST rssi=-75
+New peer! :3c:56:5e:8e
+BROADCAST rssi=-75
+Peer timed out: :3c:56:5e:ae
+Peer timed out: :2c:56:5e:ae
+Peer timed out: :3c:56:5e:8e
+New peer! :3c:56:5e:ae
+BROADCAST rssi=-77
+Peer timed out: :3c:56:5e:ae
+
+AxionQcOP
+ —
+6/19/26, 9:59 PM
+@Pretzel 🥨 do you think it would be better for me to try ti fix my antenna setup or just switch to the antenna i usally use for esp32
+its 50c more expensive
+Serin - (UTC-5)
+ —
+6/19/26, 10:12 PM
+I feel like swapping out for a tried and true option for 50¢ is a decent deal
+AxionQcOP
+ —
+6/19/26, 10:16 PM
+true
+Pretzel 🥨 [DGTC],
+ —
+6/19/26, 10:19 PM
+Tbh I don't know enough about antenna design/tuning to competently help with that, so I'd say do the known working one
+AxionQcOP
+ —
+6/19/26, 10:19 PM
+welp back to good old Johanson Dielectrics
+though its supposed to be for
+Image
+while mines in the corner
+AxionQcOP
+ —
+6/19/26, 11:43 PM
+:(
+Image
+Serin - (UTC-5)
+ —
+6/19/26, 11:44 PM
+How many boards is that?
+AxionQcOP
+ —
+6/19/26, 11:44 PM
+200
+AxionQcOP
+ —
+6/19/26, 11:45 PM
+this was before the new antenna
+for 120
+Image
+AxionQcOP
+ —
+6/19/26, 11:58 PM
+150
+Image
+AxionQcOP
+ —
+6/20/26, 6:49 PM
+@Pretzel 🥨 can you do something for me? can you grab rssi data from 2 synthpasses about 5.4m away from eachother?
+-84, -74, -78, -73, -
+78, -70, -65, -82, -80, -71, -75, -74, -78 im trying to see if this data with the protocore ultra ble is accurate
+MyloWhylo
+ —
+7/6/26, 3:08 PM
+Cool, interested in seeing what that ends up looking like. Right now I'm just planning a very simple register set, just ID, status register, RSSI of last boop, then some cursed way of squeezing whatever prox/boop text there is into one/a few registers
+Pretzel 🥨 [DGTC],
+ —
+7/6/26, 4:02 PM
+@bitbyt3r hi :3
+bitbyt3r
+ —
+7/6/26, 4:02 PM
+Hello!
+MyloWhylo
+ —
+7/7/26, 4:03 PM
+@Pretzel 🥨 got two (related) questions: what does the button do, and why is it connected to the USB D+ line?
+I may have been messing around with different clock frequencies and now I can't get it to enter flashing mode lol
+Pretzel 🥨 [DGTC],
+ —
+7/7/26, 4:07 PM
+It's the boot button on the ch570. Should never need to be used unless you brick the bootloader
+Pretzel 🥨 [DGTC],
+ —
+7/7/26, 4:07 PM
+Oh hey that's convenient lol
+Hold down the button while plugging it in to USB they try flashing immediately
+MyloWhylo
+ —
+7/7/26, 4:15 PM
+Holding the button doesn't seem to do anything, it immediately shows up as a Synthpass
+Pretzel 🥨 [DGTC],
+ —
+7/7/26, 4:27 PM
+Press harder lol
+The button is kinda bad
+MyloWhylo
+ —
+7/7/26, 4:47 PM
+wow you weren't kidding, lol
+also, the actual issue: I added a function to gate the clock to the unused peripherals (UART, comparator, timer, PWM, SPI) for idk 1uA of power savings, and apparently the bootloader needs the timer but doesn't actually enable it. Strange.
+Serin - (UTC-5)
+ —
+7/7/26, 4:49 PM
+No no it just desperately wanted that 1 uA of power you stole
+Pretzel 🥨 [DGTC],
+ —
+7/7/26, 5:37 PM
+Have you been measuring power consumption? I've been meaning to borrow the power profiler from work and test this, but didn't get to that before AC.
+ [DGTC],
+MyloWhylo
+ —
+7/7/26, 5:45 PM
+I have not, but I will likely borrow the sourcemeter from work and actually measure it
+AxionQcOP
+ —
+7/7/26, 6:14 PM
+welp i think using a chip antenna was the bad route
+Serin - (UTC-5)
+ —
+7/7/26, 6:21 PM
+Why's that?
+AxionQcOP
+ —
+7/7/26, 6:25 PM
+very very bad results, even a matching network cant fix
+but it could be due to the cables and stuff
+ [DGTC],
+MyloWhylo
+ —
+7/7/26, 6:45 PM
+:exite:
+AxionQcOP
+ —
+7/7/26, 9:19 PM
+@Pretzel 🥨 btw did you test how the range is affected In a head?
+AxionQcOP
+ —
+7/7/26, 11:25 PM
+new revision
+Image
+Pretzel 🥨 [DGTC],
+ —
+7/7/26, 11:37 PM
+It makes little difference, visors/printed parts don't seem to impede the signal
+AxionQcOP
+ —
+7/7/26, 11:37 PM
+the copper pours in the displays gotta affect it a bit
+Pretzel 🥨 [DGTC],
+ —
+7/7/26, 11:37 PM
+If you put it behind the panels it's a bit harder to boop, I don't have any objective numbers
+Pretzel 🥨 [DGTC],
+ —
+7/8/26, 10:06 AM
+Convergent evolution :3
+MyloWhylo
+ —
+7/8/26, 12:31 PM
+Ok, I've managed to get it to respond to one I2C read, but then it breaks lol. Need to tweak the ISR code. Also, I found out there's a bunch of custom instructions on this core, including one which is literally just memcpy. Might make a custom wrapper function to be able to use that, shrink down some code in a few places
+There's also a bunch of custom compressed opcodes for loads and stores of different widths, which are annoying because GCC can't emit them automatically. It'd probably make all of the __HIGH_CODE functions smaller but you'd have to rewrite them in assembly
+MyloWhylo
+ —
+7/8/26, 1:08 PM
+which, I know risc-v assembly, so if we really wanna hyper-optimize this...
+Pretzel 🥨 [DGTC],
+ —
+7/8/26, 1:45 PM
+Neat! I wouldn't dig too deep into that optimization yet, I think a lot is going to change with this firmware soon.
+Pretzel 🥨 [DGTC],
+ —
+7/9/26, 3:57 PM
+oh hey we were never actually checking message CRC's, so if you receive a message with some funky bytes or another message shouting over it, it just gets accepted anyways
+MyloWhylo
+ —
+7/9/26, 9:51 PM
+made a pull request to merge some of the optimizations I've made. Mostly it's just me moving a bunch of stuff out of RAM and back into ROM
+And also redefining memcpy lol
+Pretzel 🥨 [DGTC],
+ —
+7/11/26, 12:01 AM
+3d models are finally on the github
+Pretzel 🥨 [DGTC],
+ —
+7/14/26, 5:13 PM
+My vision is that the SynthPass becomes primarily a USB serial device + maybe a CDC device with just the HTML page for the control panel, and then we add a serial bootloader so we can do firmware updates through the browser interface as well.
+ [DGTC],
+AxionQcOP
+ —
+7/14/26, 5:15 PM
+but how would you access the control panel?
+since im pretty sure it doesnt have wifi
+Pretzel 🥨 [DGTC],
+ —
+7/14/26, 5:47 PM
+It'd be an HTML file on the SynthPass like the MESSAGES.HTM that currently shows up on there, with either:
+
+    fully local control panel, one big HTML file with all the necessary scripts/respurces built in that lives in the firmware. Probably a bad idea because it means the dashboard has to be ~10s of kb at most
+
+Or
+
+    tiny HTML stub living in the firmware, which fetches scripts/content from the Internet.
+
+I'm leaning towards option 2 rn, that makes it a lot easier to do firmware updates too
+AxionQcOP
+ —
+7/14/26, 5:50 PM
+how will it connect to the internet?
+MyloWhylo
+ —
+7/14/26, 5:53 PM
+Your host device does that
+Client side javascript
+All the synthpass has to do wrt the webpage is provide it as a .htm file in a filesystem, and accept configuration over serial
+Hell, make the only thing in the filesystem a shortcut/redirect to a GitHub pages (or personal website) hosting the actual config page
+ [ﬂuﬀy],
+Jay [ﬂuﬀy],
+ —
+7/14/26, 7:55 PM
+should minichlink still be working on the newest version of ch32fun?
+ [ﬂuﬀy],
+Pretzel 🥨 [DGTC],
+ —
+7/14/26, 9:19 PM
+it should be. Are you still getting this error message?
+You can also try holding the boot button down while you plug in the USB then immediately flashing it
+Pretzel 🥨 [DGTC],
+ —
+7/14/26, 11:24 PM
+Funny coincidence I came across...
+there's an existing BLE protocol for the type of thing we're doing with SynthPass
+and it's called "PAwR"
+brb gonna go delete the whole iSLER radio implementation and replace it with PAwR
+ [DGTC],
+Jay [ﬂuﬀy],
+ —
+7/15/26, 6:03 AM
+doesn't work :(
+this just adds a new error line, "can't access bootloader" with an error code something like libusb_open(-12) (I can't run it again to check rn but that should be correct)
+Otherwise I get the same results from above screenshot, whether or not the board is even plugged in
+ [ﬂuﬀy],
+Pretzel 🥨 [DGTC],
+ —
+7/15/26, 6:33 AM
+you on windows?
+There's some driver stuff that needs to be done if so, I think...
+Jay [ﬂuﬀy],
+ —
+7/15/26, 6:10 PM
+yes, Win10 ESU because every time I decide to set up CachyOS something new breaks in exciting ways that take up my entire weekend
+Jay [ﬂuﬀy],
+ —
+7/15/26, 6:31 PM
+got them flashed. had to use zadig to add a driver, then boot them in bootloader mode, and while continuing to hold down the boot button, run minichlink and then upload from VSCode
+if I let go of the BOOT button for too long it becomes unflashable until I plug it back in with the button held again lol
+but I no longer need to run minichlink
+now I just gotta figure out how to actually get SynthPass set up lol
+they do react to each other though!
+Pretzel 🥨 [DGTC],
+ —
+7/15/26, 6:39 PM
+Yay! Glad you got it to flash at least. Does the normal PIO build work once you flash it the first time?
+Jay [ﬂuﬀy],
+ —
+7/15/26, 6:39 PM
+range is wildly dependent on orientation, and I guess the metal tube frame in my desk must be doing some weird resonance stuff because if I set them both down they can be over a foot apart and still react lol
+ [DGTC],
+Jay [ﬂuﬀy],
+ —
+7/15/26, 6:40 PM
+yes
+do I even need to run -t update if I'm just changing config?
+ [ﬂuﬀy],
+Pretzel 🥨 [DGTC],
+ —
+7/15/26, 6:42 PM
+were you using -e nanoch57x when you built it? If you use the normal -e pretzelslab on a nanoch57x it'll have ~2x the range because they have better antennas, the environment defines in board.h adjust that depending on the board you're using.
+Jay [ﬂuﬀy],
+ —
+7/15/26, 6:43 PM
+ah so that flag adjusts the transmit power rather than doing any important firmware stuff?
+I used nanoch57x since that's what they are
+Pretzel 🥨 [DGTC],
+ —
+7/15/26, 6:44 PM
+Close, keeps the transmit power the same and adjusts an offset value in the message so the receivers know it's a more powerful radio.
+ [ﬂuﬀy],
+Pretzel 🥨 [DGTC],
+ —
+7/15/26, 6:44 PM
+not sure what -t update means, do you mean upload?
+Jay [ﬂuﬀy],
+ —
+7/15/26, 6:44 PM
+yeah
+that
+oops
+Pretzel 🥨 [DGTC],
+ —
+7/15/26, 6:44 PM
+You only need to re-upload when you make a code config change, you should be able to edit SYNTHPAS.INI without re-uploading
+Jay [ﬂuﬀy],
+ —
+7/15/26, 6:45 PM
+ahh
+Pretzel 🥨 [DGTC],
+ —
+7/15/26, 6:45 PM
+(should be able to, never actually tried on windows and the config file handling is weird)
+Jay [ﬂuﬀy],
+ —
+7/15/26, 6:45 PM
+well... I can test now
+soon as I find that file lol
+Pretzel 🥨 [DGTC],
+ —
+7/15/26, 6:47 PM
+It should show up on the synthpass's MSC device when you plug it into your computer
+Jay [ﬂuﬀy],
+ —
+7/15/26, 6:47 PM
+on the what now?
+Pretzel 🥨 [DGTC],
+ —
+7/15/26, 6:48 PM
+so when you plug in the SynthPass, it shows up as two separate USB devices. One is a CDC device (usb serial) for the bootloader/debug printing, the other is a MSC device (like a usb flash drive) for the messages/configuration
+so once it's flashed with the SynthPass firmware, it should show up as an 8Mb USB drive
+Jay [ﬂuﬀy],
+ —
+7/16/26, 9:02 AM
+only sda, no sdb
+Pretzel 🥨 [DGTC],
+ —
+7/16/26, 9:07 AM
+damn. Can you post your output from lsusb -t? Should show up with these three interfaces under the same port/dev if it's working correctly:
+
+/:  Bus 001.Port 001: Dev 001, Class=root_hub, Driver=xhci_hcd/10p, 480M
+    |__ Port 003: Dev 017, If 0, Class=Communications, Driver=cdc_acm, 12M
+    |__ Port 003: Dev 017, If 1, Class=CDC Data, Driver=cdc_acm, 12M
+    |__ Port 003: Dev 017, If 2, Class=Mass Storage, Driver=usb-storage, 12M
+
+Jay [ﬂuﬀy],
+ —
+7/16/26, 9:08 AM
+/dev/disk/by-id doesn't mention SynthPass, it shows the SSD and something without a readable name that may also be the SSD
+alright just a minute
+ [DGTC],
+Jay [ﬂuﬀy],
+ —
+7/16/26, 9:12 AM
+
+minecrap@minecrap:~$ lsusb -t
+/:  Bus 001. [...]
+    |__ Port 005: Dev 003, If 0, Class=Communications, Driver=cdc_acm, 12M
+    |__ Port 005: Dev 003, If 1, Class=CDC Data, Driver=cdc_acm, 12M
+    |__ Port 005: Dev 003, If 2, Class=Mass Storage, Driver=usb-storage, 12M
+[more irrelevant stuff]
+
+there shouldn't be any other USB storage devices attached so that should be it
+Pretzel 🥨 [DGTC],
+ —
+7/16/26, 9:14 AM
+That's it. Looks like the SynthPass is at least healthy enough to present the three interfaces, but for some reason it's still not showing up as a disk.
+Jay [ﬂuﬀy],
+ —
+7/16/26, 9:14 AM
+odd
+Pretzel 🥨 [DGTC],
+ —
+7/16/26, 9:15 AM
+can you watch dmesg -w while you plug it in? If it's healthy you should see this output:
+
+[633564.400429] usb 1-3: new full-speed USB device number 22 using xhci_hcd
+[633564.696442] usb 1-3: New USB device found, idVendor=1209, idProduct=d035, bcdDevice= 0.07
+[633564.696451] usb 1-3: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[633564.696456] usb 1-3: Product: SynthPass
+[633564.696460] usb 1-3: Manufacturer: SynthPass
+[633564.696464] usb 1-3: SerialNumber: 007
+[633564.720467] cdc_acm 1-3:1.0: ttyACM0: USB ACM device
+[633564.720740] usb-storage 1-3:1.2: USB Mass Storage device detected
+[633564.720947] scsi host11: usb-storage 1-3:1.2
+[633565.727436] scsi 11:0:0:0: Direct-Access     SynthPas Messages         1.00 PQ: 0 ANSI: 2
+[633565.727775] sd 11:0:0:0: Attached scsi generic sg1 type 0
+[633565.732416] sd 11:0:0:0: [sdb] 16384 512-byte logical blocks: (8.39 MB/8.00 MiB)
+[633565.733065] sd 11:0:0:0: [sdb] Write Protect is off
+[633565.733073] sd 11:0:0:0: [sdb] Mode Sense: 03 00 00 00
+[633565.733589] sd 11:0:0:0: [sdb] No Caching mode page found
+[633565.733597] sd 11:0:0:0: [sdb] Assuming drive cache: write through
+[633565.830034]  sdb:
+[633565.830073] sd 11:0:0:0: [sdb] Attached SCSI removable disk
+
+Jay [ﬂuﬀy],
+ —
+7/16/26, 9:15 AM
+alright
+Pretzel 🥨 [DGTC],
+ —
+7/16/26, 9:16 AM
+Hopefully you'll have some error messages in there instead.
+Jay [ﬂuﬀy],
+ —
+7/16/26, 9:21 AM
+
+minecrap@minecrap:~$ sudo dmesg -w | grep usb
+[ 2919.802540] usb 1-5: USB disconnect, device number 5
+[ 2922.941636] usb 1-5: new full-speed USB device number 6 using xhci_hcd
+[ 2923.090868] usb 1-5: New USB device found, idVendor=1209, idProduct=d035, bcdDevice= 0.07
+[ 2923.090872] usb 1-5: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[ 2923.090874] usb 1-5: Product: SynthPass              [ 2923.090876] usb 1-5: Manufacturer: SynthPass
+[ 2923.090877] usb 1-5: SerialNumber: 007               [ 2923.093531] usb-storage 1-5:1.2: USB Mass Storage device detected                                            [ 2923.094352] scsi host6: usb-storage 1-5:1.2
+[ 2924.226377] usb 1-5: reset full-speed USB device number 6 using xhci_hcd
+[ 2924.506438] usb 1-5: reset full-speed USB device number 6 using xhci_hcd
+[ 2924.782213] usb 1-5: reset full-speed USB device number 6 using xhci_hcd
+[ 2925.058409] usb 1-5: reset full-speed USB device number 6 using xhci_hcd
+^C
+
+honestly I didn't think grep was going to work for that
+oh the relevant lines don't say usb dang it
+I'm getting a bunch of pcie errors for who knows what lol
+Jay [ﬂuﬀy],
+ —
+7/16/26, 9:33 AM
+with "pcie" filtered out:
+
+[ 3528.751891] usb 1-5: USB disconnect, device number 6
+[ 3534.702697] usb 1-5: new full-speed USB device number 7 using xhci_hcd                                       [ 3534.837883] usb 1-5: New USB device found, idVendor=1209, idProduct=d035, bcdDevice= 0.07
+[ 3534.837899] usb 1-5: New USB device strings: Mfr=1, Product=2, SerialNumber=3                                [ 3534.837906] usb 1-5: Product: SynthPass
+[ 3534.837912] usb 1-5: Manufacturer: SynthPass
+[ 3534.837918] usb 1-5: SerialNumber: 007
+[ 3534.841688] cdc_acm 1-5:1.0: ttyACM0: USB ACM device
+[ 3534.842112] usb-storage 1-5:1.2: USB Mass Storage device detected                                            [ 3534.843112] scsi host6: usb-storage 1-5:1.2
+[ 3535.987041] usb 1-5: reset full-speed USB device number 7 using xhci_hcd
+[ 3536.127870] cdc_acm 1-5:1.0: ttyACM0: USB ACM device
+[ 3536.263502] usb 1-5: reset full-speed USB device number 7 using xhci_hcd                                     [ 3536.405422] cdc_acm 1-5:1.0: ttyACM0: USB ACM device
+[ 3536.540460] usb 1-5: reset full-speed USB device number 7 using xhci_hcd
+[ 3536.681350] cdc_acm 1-5:1.0: ttyACM0: USB ACM device
+[ 3536.816911] usb 1-5: reset full-speed USB device number 7 using xhci_hcd                                     [ 3536.958584] cdc_acm 1-5:1.0: ttyACM0: USB ACM device
+^C
+
+
+those last few lines don't repeat forever. I am waiting a few seconds before ctrl+c
+MyloWhylo
+ —
+7/16/26, 10:54 AM
+Just for my sake, what distro are you running?
+Not that it really matters, but
+Jay [ﬂuﬀy],
+ —
+7/16/26, 11:17 AM
+debian
+AxionQcOP
+ —
+7/23/26, 5:48 PM
+@Pretzel 🥨 whats the rssi that you get with a range of about 1M?
+im getting around -50
+Pretzel 🥨 [DGTC],
+ —
+8/9/26, 4:19 PM
+oh man I completely forgot to respond. Measuring between -40 and -50 with my current setup, but it appears to be pretty sensitive to the orientation of the two nodes and quite noisy
+Pretzel 🥨 [DGTC],
+ —
+8/9/26, 7:06 PM
+SynthPass testing/programming station
+Image
+Needed more devices because I'm about to mesh it up
+I've been reading through the MeshCore source this weekend and getting some ideas. We could lift the networking/encryption/identity implementation from meshcore and make it part of SynthPass, that would get you an actual peer to peer mesh chat with message forwarding and the ability to send private messages to individuals/groups.
+then you could just use the regular meshcore companion app to send messages on the protogen mesh publicly or privately
+ [DGTC],
+Pretzel 🥨 [DGTC],
+ —
+8/9/26, 7:29 PM
+(ignore the two on the left i'm definitely not up to anything)
+ [DGTC],
+Arc [Slug],
+ —
+8/9/26, 7:57 PM
+Love that "best buy" sticker on the laptop :3
+ [Slug],
+perhapsleiana
+ —
+8/9/26, 8:22 PM
+It’s beautiful :3
+Image
+Arc [Slug],
+ —
+8/9/26, 8:25 PM
+Hell yea
+Is that the 64 bit limit?
+ [Slug],
+Pretzel 🥨 [DGTC],
+ —
+8/9/26, 8:34 PM
+yeah signed 64 bit :]
+MyloWhylo
+ —
+8/11/26, 9:37 AM
+Power and current measurements for those curious
+Image
+Image
+MyloWhylo
+ —
+8/11/26, 9:45 AM
+for those extra playing along at home, the current measurement here has  ±0.013mA accuracy in this range so you can probably take it to be true
+Serin - (UTC-5)
+ —
+8/11/26, 9:45 AM
+but what if its secretly consuming an extra 500 mA ?
+MyloWhylo
+ —
+8/11/26, 9:45 AM
+🤯
+(the meter hasn't been calibrated in years, and I would calibrate it, but the procedure calls for an HP 3458A and uh, I do not have one of those lmao)
+MyloWhylo
+ —
+8/11/26, 9:55 AM
+I can now tell you that disabling these peripherals saves 600uA
+Image
+MyloWhylo
+ —
+8/11/26, 10:30 AM
+I think the advanced level strat is run the USB VBUS through a diode, and connect the USB port side of that to pin PA9 as a "usb plug detect". That way when you plug the USB in you can enable the PLL, switch to that clock source, do your USB stuff, and when it's not plugged in you can disable the PLL and gate the clock to the USB module and save even more power
+Pretzel 🥨 [DGTC],
+ —
+8/11/26, 12:42 PM
+That's a good idea. 12mA seems about right, I think I did the napkin math and came up with 9mA but that didn't account for the other peripherals.
+Decreasing current consumption is very important because I want to add a battery to the next version, probably a coin cell
+Right now we'd get about 20hrs on a cr2032 but only about 4hrs on a LIR2032 (the rechargeable version). If we periodic RX + repeat the broadcast messages, I think we should be able to get to about 500uA
+For reference- CR2032 is about 240mAh, LIR2032 is only 45mAh.
+MyloWhylo
+ —
+8/11/26, 2:10 PM
+for a point of reference, I disabled the PLL and USB, and set the core frequency to 16MHz, and it dropped to mid 9mA. I was also trying to look and see if there's a way to disable the TX radio when we're not doing anything, but the datasheet is rather curt about how the BLE section works. I think we can also safely disable the AES block because we're not doing anything more than sending weird device advertisements.
+side note: I love that the library in CH32Fun greeks "Bluetooth LE" to "Industry Standard Low-Energy Radio", a la how sometimes you see I2C peripherals listed as "two-wire interface" lol
+MyloWhylo
+ —
+8/11/26, 5:06 PM
+also, apparently the USB pull-up resistor should be 1.5k instead of 5.1k, at least according to the makers of the nanoCH57x board. Not sure if anyone has posted this here but for the next revision, here ya go
+Image
+Pretzel 🥨 [DGTC],
+ —
+8/11/26, 7:09 PM
+wait did I get that one wrong too?
+AxionQcOP
+ —
+8/11/26, 7:10 PM
+Nah that’s been fixed for a while
+Pretzel 🥨 [DGTC],
+ —
+8/11/26, 7:10 PM
+oops
+Image
+ [DGTC],
+AxionQcOP
+ —
+8/11/26, 7:10 PM
+Ooh you did
+Pretzel 🥨 [DGTC],
+ —
+8/11/26, 7:10 PM
+still works
+MyloWhylo
+ —
+8/11/26, 7:13 PM
+Maybe it's not the button...
+Pretzel 🥨 [DGTC],
+ —
+8/13/26, 6:06 PM
+... Regardless, SynthPass hardware V2 is going to have a 1.5k resistor
+And also a battery connector and/or holder for a coin cell battery! The mesh network stuff needs a strictly-increasing timestamp from each individual device, so they have to keep time when powered off.
+Serin - (UTC-5)
+ —
+8/13/26, 8:44 PM
+What are the current thoughts on the mesh portion?
+Pretzel 🥨 [DGTC],
+ —
+8/13/26, 9:35 PM
+I'm working on implementing the mesh protocol already
+Even if it's only useful for the encryption/identity part I think it's worth
+Serin - (UTC-5)
+ —
+8/13/26, 9:40 PM
+Are you using mesh core or meshtasic?
+Pretzel 🥨 [DGTC],
+ —
+8/13/26, 9:43 PM
+MeshCore
+it's technically not even meshcore but I'm using the same packet format and companion app protocol
+Different radio protocol and timing, MeshCore uses LoRa which is very slow and very long range, vs BLE which is about 100x faster and 10x shorter range
+I also want to try some tricks to lower battery consumption which are not part of MeshCore. Transmitting each packet 10x and only receiving for 10% of the time should almost 10x the battery life, and that's fine because BLE is so much faster than LoRa
+sorry I'm yapping a lot here I just am getting very excited about mesh networks
+I imagine the radio protocol of SynthPass eventually gets dropped and SynthPass just becomes one of many possible applications which can be built with the mesh protocol. Encrypted text messaging through the meshcore companion app also comes basically for free.
+Serin - (UTC-5)
+ —
+8/13/26, 9:51 PM
+I love that you're apoloyfoe the very thing I asked for 🤣
+Pretzel 🥨 [DGTC],
+ —
+8/13/26, 9:51 PM
+:birbhuh:
+Serin - (UTC-5)
+ —
+8/13/26, 9:52 PM
+I wanted you to yap on about the plans lol
+Pretzel 🥨 [DGTC],
+ —
+8/13/26, 9:52 PM
+oh happy to continue lol
+i have more plans than I will possibly ever get around to implementing
+Serin - (UTC-5)
+ —
+8/13/26, 9:52 PM
+Please do
+Pretzel 🥨 [DGTC],
+ —
+8/13/26, 9:54 PM
+Well, the meshcore protocol also supports hierarchically nested meshes with special transport packets that tell repeaters to forward the packet to another mesh. So one could make a device with both a SynthPass and MeshCore radio and bridge the protogen mesh into the actual regional MeshCore mesh
+and theoretically this could be done with basically any meshcore-compatible device with some custom firmware, since they all have BLE radios built in to connect to your phone
+Serin - (UTC-5)
+ —
+8/13/26, 9:57 PM
+See that would awesome especially since I'm building a lora radio into my girl
+Pretzel 🥨 [DGTC],
+ —
+8/13/26, 9:57 PM
+alright you're now the designated meshcore bridge repeater
+I think I need a name for the mesh protocol, it's not-quite-meshcore enough that it'd be confusing to call it meshcore
+Serin - (UTC-5)
+ —
+8/13/26, 9:58 PM
+I think the 1w radio should be able to cover a good area 😂
+Pretzel 🥨 [DGTC],
+ —
+8/13/26, 9:59 PM
+yeah that should be plenty :birbsweat:
+hope you got a license for that thing, lol (or is it not required because ISM band?)
+Serin - (UTC-5)
+ —
+8/13/26, 10:01 PM
+It is within the license free category thankfully as long as I stay in the 915 band
+Pretzel 🥨 [DGTC],
+ —
+8/13/26, 10:03 PM
+neat!
+I think I'm going to call the mesh protocol "protomesh" for now, but I reserve the right to change my mind later
+Serin - (UTC-5)
+ —
+8/13/26, 10:04 PM
+wow something protogen related starting with proto? Color me surprised 🤣
+Pretzel 🥨 [DGTC],
+ —
+8/13/26, 10:06 PM
+:birbnervous: my todo list for this project is too long for me to be worrying about branding yet
+Image
+Serin - (UTC-5)
+ —
+8/13/26, 10:08 PM
+I can't talk, I called my project ProtoHUD
+What does nrf mean ?
+Pretzel 🥨 [DGTC],
+ —
+8/13/26, 10:10 PM
+a lot of meshcore/meshtastic hardware use a bluetooth SoC called the nRF420621 or something
+i forget the numbers
+Serin - (UTC-5)
+ —
+8/13/26, 10:11 PM
+Ahhhh
+yocto
+ —
+8/13/26, 10:20 PM
+Nordic rf
+Arc [Slug],
+ —
+Yesterday at 3:17 PM
+shaved a few mm off the synthpass R1 and got it onto 2 layers by removing the JST connector and using a smaller crystal :3
+probably wont make a lot of these, pretty much just made it for my own fursuit and it does have some compromises compared to the original
+Image
+figured I might as well order some since im ordering PCBs anyway :3
+the GND plane is relitively uninterrupted but will have to see how much 2 layers affects the antenna performance
+Image
+Arc [Slug],
+ —
+Yesterday at 3:25 PM
+also gotta do silkscreen for the back
+ [Slug],
+AxionQcOP
+ —
+Yesterday at 3:38 PM
+How big is it?
+Arc [Slug],
+ —
+Yesterday at 3:39 PM
+15.8mmx16.8mm
+Arc [Slug],
+ —
+Yesterday at 3:59 PM
+Image
+ [Slug],
+Pretzel 🥨 [DGTC],
+ —
+8:26 AM
+Neat! I think the antenna should work ok, and hopefully that feed is short enough that it won't be too bad without a ground plane. I wouldn't be surprised if it loses a bit of range because of it though
+Love the paw print power pads
+Should be fully compatible with the firmwares as far as I can tell
+ [DGTC],
+Arc [Slug],
+ —
+8:30 AM
+yep its all electrically the same as the original
+well, except that it has the CC resistors
+turns out the CC resistors do have to be separate to avoid messing with emarked cables
+Pretzel 🥨 [DGTC],
+ —
+8:31 AM
+I am actually proud of forgetting those because it puts me in the same league as the raspberry pi foundation
+ [Slug],
+Arc [Slug],
+ —
+8:33 AM
+my understanding is that it messes with the emarkers psu somehow, it will still work in most cases but not always
+Pretzel 🥨 [DGTC],
+ —
+9:15 AM
+y'know, we've got 3 hardware contributors and 3 software contributors to this project now, that's 2 more than I ever expected on both fronts.
+I wonder if it might be time to create a dedicated server for the Synthpass project, rather than it just living in a 1400 message discord thread.
+ [DGTC],
+Arc [Slug],
+ —
+10:18 AM
+considering this is a project that succeeds based on how widespread it is, having a server would probably be helpful
+Pretzel 🥨 [DGTC],
+ —
+10:31 AM
+true, and this thread is inaccessible to most of the people I've given hardware out to

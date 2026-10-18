@@ -3,9 +3,9 @@
 #include <stdint.h>
 #include <string.h>
 
-uint8_t path_len_bytes(PM_PathLen *len) {
+uint32_t path_len_bytes(PM_PathLen *len) {
     uint16_t len_bytes = len->hop_hash_size * len->hops;
-    if(len_bytes > MAX_PATH_SIZE) { return MAX_PATH_SIZE; }
+    // if(len_bytes > MAX_PATH_SIZE) { return MAX_PATH_SIZE; } // Check moved to unpack_packet.
     return len_bytes;
 }
 
@@ -48,22 +48,32 @@ PM_Header unpack_header(uint8_t hdr) {
     };
 }
 
-void unpack_packet(uint8_t *packet, uint8_t len, PM_Packet *into) {
-    uint8_t i = 0;
+
+// returns: 0 on success, 1 on error
+uint8_t unpack_packet(uint8_t *packet, uint8_t len, PM_Packet *into) {
+    if(len < 1) { return 1; } // reject too short packet    
+    uint8_t i = 0;  
     into->header = unpack_header(packet[i++]);
     if(packet_has_transport_codes(into)) {
+        if(i + sizeof(into->transport_codes) > len) { return 1; } // reject too short packet
         memcpy(&into->transport_codes, &packet[i], sizeof(into->transport_codes));
         i += sizeof(into->transport_codes);
     }
 
+    if(i + 1 > len) { return 1; } // reject too short packet
     into->path_len = unpack_pathlen(packet[i++]);
+    
     uint8_t pl_b = path_len_bytes(&into->path_len);
+    if(pl_b > MAX_PATH_SIZE) { return 1; } // rejects too long path
 
-    memcpy(&into->path, &packet[i], pl_b);
+    if(i + pl_b > len) { return 1; } // reject too short packet
+     memcpy(&into->path, &packet[i], pl_b);
     i += pl_b;
     uint8_t payload_len = len - i;
+    if(payload_len > sizeof(into->payload.data)) { return 1; } // over max length packet
     into->payload.len = payload_len;
     memcpy(&into->payload.data, &packet[i], payload_len);
+    return 0;
 }
 
 // returns: packed packet length

@@ -71,7 +71,8 @@ typedef struct {
     int8_t rssi;
 } PM_Packet;
 
-void unpack_packet(uint8_t *packet, uint8_t len, PM_Packet *into);
+// returns: 0 on success, 1 on error
+uint8_t unpack_packet(uint8_t *packet, uint8_t len, PM_Packet *into);
 
 // returns: packed packet length
 uint8_t pack_packet(PM_Packet *packet, uint8_t *buf);

@@ -99,7 +99,8 @@ uint32_t MACThenDecrypt(const uint8_t* shared_secret, uint8_t* dest, const uint8
   // timing attacks - doesn't seem very plausible regardless, but maybe worth
   // doing anyway
   if(memcmp(hmac_bytes, src, CIPHER_MAC_SIZE) == 0) {
-    return decrypt(shared_secret, dest, src + CIPHER_MAC_SIZE, src_len - CIPHER_MAC_SIZE);
+    uint32_t cyphertext_len =  src_len - CIPHER_MAC_SIZE;
+    return decrypt(shared_secret, dest, src + CIPHER_MAC_SIZE, cypheretxt_len);
   } else {
     return 0; // invalid HMAC
   }

@@ -1,10 +1,27 @@
 #include <string.h>
+#include <stdlib.h>
 #include <unity.h>
 #include "packet.h"
 #include <stdio.h>
 
 void setUp(void) {}
 void tearDown(void) {}
+
+// Unpack a frame from a heap buffer of exactly `len` bytes, so any read past the
+// end of the frame is caught when running under ASan (env:native_asan).
+static uint8_t unpack_exact(const uint8_t *frame, uint8_t len, PM_Packet *into) {
+    uint8_t *buf = malloc(len ? len : 1);
+    if (len) memcpy(buf, frame, len); // memcpy from NULL is UB even for 0 bytes
+    uint8_t err = unpack_packet(buf, len, into);
+    free(buf);
+    return err;
+}
+
+// header byte for a TXT_MSG with the given route type
+static uint8_t txt_header(uint8_t route_type) {
+    PM_Header h = { .route_type = route_type, .payload_type = PAYLOAD_TYPE_TXT_MSG };
+    return pack_header(h);
+}
 
 void test_pack_header_dnr(void) {
     PM_Header h = { .do_not_retransmit = 1 };
@@ -122,7 +139,9 @@ void test_packet_round_trip(void) {
     // printf("\n");
     // printf("\n");
 
-    unpack_packet(buf, len, &p2);
+    uint8_t errcode = unpack_packet(buf, len, &p2);
+
+    TEST_ASSERT_EQUAL_UINT8(0, errcode);
 
     uint8_t *a = (uint8_t*)(void*)&p;
     // uint8_t *b = (uint8_t*)(void*)&p2;
@@ -137,6 +156,135 @@ void test_packet_round_trip(void) {
     TEST_ASSERT_EQUAL_UINT8_ARRAY(a, b, sizeof(PM_Packet));
 }
 
+// ---- too short ----
+
+void test_unpack_rejects_empty(void) {
+    PM_Packet p;
+    TEST_ASSERT_EQUAL_UINT8(1, unpack_exact(NULL, 0, &p));
+}
+
+void test_unpack_rejects_header_only(void) {
+    // no path_len byte
+    uint8_t frame[] = { txt_header(ROUTE_TYPE_FLOOD) };
+    PM_Packet p;
+    TEST_ASSERT_EQUAL_UINT8(1, unpack_exact(frame, sizeof(frame), &p));
+}
+
+void test_unpack_rejects_truncated_transport_codes(void) {
+    // transport route needs 4 bytes of transport codes; only 3 present
+    uint8_t frame[] = { txt_header(ROUTE_TYPE_TRANSPORT_FLOOD), 0x11, 0x22, 0x33 };
+    PM_Packet p;
+    TEST_ASSERT_EQUAL_UINT8(1, unpack_exact(frame, sizeof(frame), &p));
+}
+
+void test_unpack_rejects_transport_without_path_len(void) {
+    // all 4 transport code bytes present, but no path_len byte after them
+    uint8_t frame[] = { txt_header(ROUTE_TYPE_TRANSPORT_DIRECT), 0x11, 0x22, 0x33, 0x44 };
+    PM_Packet p;
+    TEST_ASSERT_EQUAL_UINT8(1, unpack_exact(frame, sizeof(frame), &p));
+}
+
+void test_unpack_rejects_truncated_path(void) {
+    // path_len claims 10 one-byte hops, frame only carries 3
+    PM_PathLen pl = { .hop_hash_size = 1, .hops = 10 };
+    uint8_t frame[] = { txt_header(ROUTE_TYPE_FLOOD), pack_pathlen(pl), 'a', 'b', 'c' };
+    PM_Packet p;
+    TEST_ASSERT_EQUAL_UINT8(1, unpack_exact(frame, sizeof(frame), &p));
+}
+
+void test_unpack_rejects_truncated_multibyte_path(void) {
+    // 3 hops of 2-byte hashes = 6 path bytes, frame carries 5
+    PM_PathLen pl = { .hop_hash_size = 2, .hops = 3 };
+    uint8_t frame[] = { txt_header(ROUTE_TYPE_DIRECT), pack_pathlen(pl), 1, 2, 3, 4, 5 };
+    PM_Packet p;
+    TEST_ASSERT_EQUAL_UINT8(1, unpack_exact(frame, sizeof(frame), &p));
+}
+
+// ---- smallest valid frames (boundary for the checks above) ----
+
+void test_unpack_accepts_empty_payload(void) {
+    // header + path_len(0 hops), no path, no payload
+    PM_PathLen pl = { .hop_hash_size = 1, .hops = 0 };
+    uint8_t frame[] = { txt_header(ROUTE_TYPE_FLOOD), pack_pathlen(pl) };
+    PM_Packet p;
+    memset(&p, 0xAA, sizeof(p));
+    TEST_ASSERT_EQUAL_UINT8(0, unpack_exact(frame, sizeof(frame), &p));
+    TEST_ASSERT_EQUAL_UINT8(0, p.path_len.hops);
+    TEST_ASSERT_EQUAL_UINT8(0, p.payload.len);
+}
+
+void test_unpack_accepts_path_filling_frame(void) {
+    // path exactly reaches the end of the frame, payload empty
+    PM_PathLen pl = { .hop_hash_size = 1, .hops = 3 };
+    uint8_t frame[] = { txt_header(ROUTE_TYPE_DIRECT), pack_pathlen(pl), 'a', 'b', 'c' };
+    PM_Packet p;
+    TEST_ASSERT_EQUAL_UINT8(0, unpack_exact(frame, sizeof(frame), &p));
+    TEST_ASSERT_EQUAL_UINT8(3, p.path_len.hops);
+    TEST_ASSERT_EQUAL_UINT8_ARRAY("abc", p.path, 3);
+    TEST_ASSERT_EQUAL_UINT8(0, p.payload.len);
+}
+
+void test_unpack_accepts_transport_codes_exact(void) {
+    PM_PathLen pl = { .hop_hash_size = 1, .hops = 0 };
+    uint8_t frame[] = { txt_header(ROUTE_TYPE_TRANSPORT_FLOOD), 0x11, 0x22, 0x33, 0x44, pack_pathlen(pl) };
+    PM_Packet p;
+    TEST_ASSERT_EQUAL_UINT8(0, unpack_exact(frame, sizeof(frame), &p));
+    TEST_ASSERT_EQUAL_UINT8_ARRAY(&frame[1], (uint8_t*)p.transport_codes, 4);
+    TEST_ASSERT_EQUAL_UINT8(0, p.payload.len);
+}
+
+// ---- too long ----
+
+// Frame of `total` bytes: flood header, 0-hop path_len, then payload bytes 0,1,2,...
+static uint8_t *make_payload_frame(uint8_t total) {
+    PM_PathLen pl = { .hop_hash_size = 1, .hops = 0 };
+    uint8_t *frame = malloc(total);
+    frame[0] = txt_header(ROUTE_TYPE_FLOOD);
+    frame[1] = pack_pathlen(pl);
+    for (int i = 2; i < total; i++) frame[i] = (uint8_t)(i - 2);
+    return frame;
+}
+
+void test_unpack_accepts_max_payload(void) {
+    uint8_t total = 2 + MAX_PAYLOAD_LEN;
+    uint8_t *frame = make_payload_frame(total);
+    PM_Packet p;
+    TEST_ASSERT_EQUAL_UINT8(0, unpack_exact(frame, total, &p));
+    TEST_ASSERT_EQUAL_UINT8(MAX_PAYLOAD_LEN, p.payload.len);
+    TEST_ASSERT_EQUAL_UINT8_ARRAY(&frame[2], p.payload.data, MAX_PAYLOAD_LEN);
+    free(frame);
+}
+
+void test_unpack_rejects_payload_one_over_max(void) {
+    uint8_t total = 2 + MAX_PAYLOAD_LEN + 1;
+    uint8_t *frame = make_payload_frame(total);
+    PM_Packet p;
+    TEST_ASSERT_EQUAL_UINT8(1, unpack_exact(frame, total, &p));
+    free(frame);
+}
+
+void test_unpack_rejects_max_trans_unit_payload(void) {
+    // the largest frame a uint8_t length allows: 253 bytes of payload
+    uint8_t *frame = make_payload_frame(MAX_TRANS_UNIT);
+    PM_Packet p;
+    TEST_ASSERT_EQUAL_UINT8(1, unpack_exact(frame, MAX_TRANS_UNIT, &p));
+    free(frame);
+}
+
+void test_unpack_rejects_path_over_max_path_size(void) {
+    // path_len claims 40 hops x 2 bytes = 80 path bytes (> MAX_PATH_SIZE 64), and the frame
+    // really carries 80 bytes of path + 10 of payload. MeshCore (Dispatcher::tryParsePacket)
+    // rejects this; accepting it would mis-split path and payload.
+    PM_PathLen pl = { .hop_hash_size = 2, .hops = 40 };
+    uint8_t total = 2 + 80 + 10;
+    uint8_t frame[2 + 80 + 10];
+    memset(frame, 0x5A, sizeof(frame));
+    frame[0] = txt_header(ROUTE_TYPE_FLOOD);
+    frame[1] = pack_pathlen(pl);
+    PM_Packet p;
+    TEST_ASSERT_EQUAL_UINT8(1, unpack_exact(frame, total, &p));
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_pack_header_dnr);
@@ -144,5 +292,19 @@ int main(void) {
     RUN_TEST(test_calculate_hash_matches_meshcore);
     RUN_TEST(test_calculate_hash_trace_packet);
     RUN_TEST(test_packet_round_trip);
+
+    RUN_TEST(test_unpack_rejects_empty);
+    RUN_TEST(test_unpack_rejects_header_only);
+    RUN_TEST(test_unpack_rejects_truncated_transport_codes);
+    RUN_TEST(test_unpack_rejects_transport_without_path_len);
+    RUN_TEST(test_unpack_rejects_truncated_path);
+    RUN_TEST(test_unpack_rejects_truncated_multibyte_path);
+    RUN_TEST(test_unpack_accepts_empty_payload);
+    RUN_TEST(test_unpack_accepts_path_filling_frame);
+    RUN_TEST(test_unpack_accepts_transport_codes_exact);
+    RUN_TEST(test_unpack_accepts_max_payload);
+    RUN_TEST(test_unpack_rejects_payload_one_over_max);
+    RUN_TEST(test_unpack_rejects_max_trans_unit_payload);
+    RUN_TEST(test_unpack_rejects_path_over_max_path_size);
     return UNITY_END();
 }
