@@ -1,0 +1,234 @@
+(footprint "APDS-9999"
+	(version 20260206)
+	(generator "pcbnew")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(descr "Digital Proximity and RGB Sensor")
+	(property "Reference" "REF**"
+		(at 0 -1.65 0)
+		(unlocked yes)
+		(layer "F.SilkS")
+		(uuid "ffdc043b-da38-41ba-adff-593629a14a11")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "APDS-9999"
+		(at 0 1.55 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(uuid "44d1f040-4164-4e48-960e-276d0b386788")
+		(effects
+			(font
+				(size 0.7 0.7)
+				(thickness 0.105)
+			)
+		)
+	)
+	(property "Datasheet" "https://docs.broadcom.com/doc/APDS-9999-DS"
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "de174e63-bb8a-4845-ad9a-11da560d6efd")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" "Digital Proximity and RGB Sensor"
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "89e7f987-0799-433e-9ba2-79fbf4d0cae2")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr smd)
+	(duplicate_pad_numbers_are_jumpers no)
+	(fp_line
+		(start 1.4 -0.9)
+		(end -0.85 -0.9)
+		(stroke
+			(width 0.12)
+			(type default)
+		)
+		(layer "F.SilkS")
+		(uuid "1706aa2d-9446-4a24-9585-9e1c6708f8f4")
+	)
+	(fp_line
+		(start 1.4 0.9)
+		(end -1.4 0.9)
+		(stroke
+			(width 0.12)
+			(type default)
+		)
+		(layer "F.SilkS")
+		(uuid "6c289a0f-9a50-455a-9e31-d0681653b087")
+	)
+	(fp_poly
+		(pts
+			(xy -1.55 -0.49) (xy -1.88 -0.25) (xy -1.88 -0.73) (xy -1.55 -0.49)
+		)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(fill yes)
+		(layer "F.SilkS")
+		(uuid "f99667ab-b353-4c2f-81a2-9a1c5fa4d876")
+	)
+	(fp_circle
+		(center -0.68 0)
+		(end -0.68 -0.5)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(fill no)
+		(layer "Cmts.User")
+		(uuid "39e53956-4884-4495-bcdb-ea7c6ac15866")
+	)
+	(fp_circle
+		(center 1.01 0)
+		(end 1.01 -0.15)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(fill no)
+		(layer "Cmts.User")
+		(uuid "9ab76ecf-9d58-402a-909a-a3fca4adb2cd")
+	)
+	(fp_rect
+		(start -1.65 -1.05)
+		(end 1.65 1.05)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.CrtYd")
+		(uuid "55221c83-2817-4e97-9a8d-ca4e7f3d4635")
+	)
+	(fp_line
+		(start -1.4 -0.35)
+		(end -0.95 -0.8)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(layer "F.Fab")
+		(uuid "49c9f052-ce68-4522-bf82-eef3fba43e12")
+	)
+	(fp_line
+		(start -1.4 0.8)
+		(end -1.4 -0.35)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(layer "F.Fab")
+		(uuid "2def4b5c-8327-4537-8629-5ed5859889fe")
+	)
+	(fp_line
+		(start -0.95 -0.8)
+		(end 1.4 -0.8)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(layer "F.Fab")
+		(uuid "b5fdbb68-a9ad-4221-9ba7-2ba4f35af860")
+	)
+	(fp_line
+		(start 1.4 -0.8)
+		(end 1.4 0.8)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(layer "F.Fab")
+		(uuid "bdf792ed-1c9f-4de4-a8f8-0b890d50d13f")
+	)
+	(fp_line
+		(start 1.4 0.8)
+		(end -1.4 0.8)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(layer "F.Fab")
+		(uuid "51e30f87-2242-4a80-b0c7-57a9db430e09")
+	)
+	(fp_text user "${REFERENCE}"
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(uuid "8627add8-c17a-4100-bb35-06ae12bdf565")
+		(effects
+			(font
+				(size 0.7 0.7)
+				(thickness 0.105)
+			)
+		)
+	)
+	(pad "1" smd rect
+		(at -0.945 -0.49 90)
+		(size 0.3 0.57)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "5b220df8-f937-4d6b-85bb-4f7fcad8ad79")
+	)
+	(pad "2" smd rect
+		(at 0 -0.49 90)
+		(size 0.3 0.52)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "a5edb8d5-c245-4053-913d-a8497fb28e80")
+	)
+	(pad "3" smd rect
+		(at 0.945 -0.49 90)
+		(size 0.3 0.57)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "5daba303-476e-4943-960e-ed417e67b592")
+	)
+	(pad "4" smd rect
+		(at 0.945 0.49 90)
+		(size 0.3 0.57)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "913be385-9835-4e78-a28e-5b309ca7226e")
+	)
+	(pad "5" smd rect
+		(at 0 0.49 90)
+		(size 0.3 0.52)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "30a1b6f5-8441-42fe-8af7-5c82155a1255")
+	)
+	(pad "6" smd rect
+		(at -0.945 0.49 90)
+		(size 0.3 0.57)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "1daa6001-629a-4460-9aa1-33892bd72341")
+	)
+	(embedded_fonts no)
+	(model "${KIPRJMOD}/APDS-9999.stp"
+		(offset
+			(xyz 0 0 0)
+		)
+		(scale
+			(xyz 1 1 1)
+		)
+		(rotate
+			(xyz -90 -0 -90)
+		)
+	)
+)
